@@ -11,8 +11,8 @@
     "sync-claude-md-darwin-x64": "0.0.0",
     "sync-claude-md-linux-arm64": "0.0.0",
     "sync-claude-md-linux-x64": "0.0.0",
-    "sync-claude-md-windows-arm64": "0.0.0",
-    "sync-claude-md-windows-x64": "0.0.0"
+    "sync-claude-md-win32-arm64": "0.0.0",
+    "sync-claude-md-win32-x64": "0.0.0"
   },
   "files": [
     "bin/sync-claude-md"

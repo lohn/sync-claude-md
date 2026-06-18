@@ -12,8 +12,8 @@ const platformPackages = {
     x64: 'sync-claude-md-linux-x64',
   },
   win32: {
-    arm64: 'sync-claude-md-windows-arm64',
-    x64: 'sync-claude-md-windows-x64',
+    arm64: 'sync-claude-md-win32-arm64',
+    x64: 'sync-claude-md-win32-x64',
   },
 };
 
