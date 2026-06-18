@@ -2,6 +2,7 @@
 actionlint = "1"
 dprint = "0"
 go = "1.26"
+golangci-lint = "2"
 goreleaser = "2"
 node = "24"
 "npm:renovate" = "43"
