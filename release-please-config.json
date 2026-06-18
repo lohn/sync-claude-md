@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "include-component-in-tag": false,
   "separate-pull-requests": false,
-  "pull-request-title-pattern": "chore: release ${version}",
-  "group-pull-request-title-pattern": "chore: release ${version}",
+  "pull-request-title-pattern": "chore: release v${version}",
+  "group-pull-request-title-pattern": "chore: release v${version}",
   "packages": {
     ".": {
       "release-type": "node",
