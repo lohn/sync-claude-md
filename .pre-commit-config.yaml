@@ -34,6 +34,46 @@ repos:
         language: unsupported
         pass_filenames: true
 
+      - id: golangci-lint-fmt
+        name: golangci-lint fmt
+        stages: [pre-commit]
+        description: Format Go source with golangci-lint (gofumpt, goimports)
+        entry: golangci-lint fmt
+        language: unsupported
+        types: [go]
+        pass_filenames: false
+        require_serial: true
+
+      - id: golangci-lint
+        name: golangci-lint
+        stages: [pre-commit]
+        description: Lint Go source with golangci-lint
+        entry: golangci-lint run
+        language: unsupported
+        types: [go]
+        pass_filenames: false
+        require_serial: true
+
+      - id: go-mod-tidy
+        name: go mod tidy
+        stages: [pre-commit]
+        description: Ensure go.mod and go.sum are tidy
+        entry: go mod tidy
+        language: unsupported
+        files: '(\.go$|go\.mod$|go\.sum$)'
+        pass_filenames: false
+        require_serial: true
+
+      - id: go-test
+        name: go test
+        stages: [pre-push]
+        description: Run Go tests before pushing
+        entry: go test ./...
+        language: unsupported
+        types: [go]
+        pass_filenames: false
+        require_serial: true
+
       - id: commitizen
         name: commitizen check
         description: Check whether the current commit message follows committing rules
