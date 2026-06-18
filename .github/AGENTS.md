@@ -13,9 +13,6 @@ an existing composite action that already provides the required functionality.
 Follow these rules for `uses:` directives.
 
 - **All external actions**, including official GitHub actions (`actions/*`): Pin to a full commit SHA. Append a trailing comment with the corresponding semver version.
-  ```yaml
-  uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  ```
 - **New actions**: Look up and use the latest available version. Existing pinned versions do not need to be updated proactively.
   - Resolve the latest tag via the GitHub API instead of relying on memory:
     ```bash
@@ -35,11 +32,20 @@ Follow these rules for `uses:` directives.
     ```
 - **Consistency**: If the same action appears multiple times within a workflow file, all occurrences must use the same version.
 - **Marketplace Link**: Add a Marketplace link as a comment above the step block (before `- name:` or `- uses:`), not between `name:` and `uses:`.
-  ```yaml
-  # https://github.com/marketplace/actions/checkout
-  - name: Checkout repository
-    uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-  ```
+
+The following example satisfies the SHA pinning, version comment, and Marketplace link rules together:
+
+```yaml
+# https://github.com/marketplace/actions/checkout
+- name: Checkout repository
+  uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+```
+
+## Step Names
+
+Every step must have a concise `name:`. This applies to all steps in both
+workflow files (`workflows/`) and composite actions (`actions/`), including
+steps that only invoke an action via `uses:`.
 
 ## Script Language Hints
 

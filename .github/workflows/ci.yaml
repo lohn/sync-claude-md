@@ -4,14 +4,14 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       # https://github.com/marketplace/actions/checkout
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -31,7 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # https://github.com/marketplace/actions/checkout
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -40,3 +41,24 @@ jobs:
 
       - name: golangci-lint
         run: golangci-lint run --timeout=5m
+
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Initialize tools
+        uses: ./.github/actions/init-tools
+        with:
+          cache-key: ci
+
+      - name: Run prek
+        # language=bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            prek run --show-diff-on-failure --from-ref "${{ github.event.pull_request.base.sha }}"
+          else
+            prek run --show-diff-on-failure --all-files
+          fi

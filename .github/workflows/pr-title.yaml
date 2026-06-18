@@ -1,0 +1,56 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened]
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-title:
+    name: PR title check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        id: check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        # language=bash
+        run: |
+          pipx run --spec commitizen cz check -m "$PR_TITLE" 2>&1
+
+      # https://github.com/marketplace/actions/sticky-pull-request-comment
+      - name: Post PR comment
+        if: always() && steps.check.outcome == 'failure'
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+        with:
+          header: pr-title
+          message: |
+            ## ❌ PR Title Check Failed
+
+            PR title must follow the [Conventional Commits](https://www.conventionalcommits.org/) format:
+
+            ```
+            <type>[optional scope]: <description>
+            ```
+
+            **Examples:**
+            - `feat: add new feature`
+            - `fix(core): resolve crash on startup`
+            - `docs: update README`
+            - `refactor(api): simplify request handling`
+
+            **Common types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`
+
+      # https://github.com/marketplace/actions/sticky-pull-request-comment
+      - name: Delete PR comment on success
+        if: steps.check.outcome == 'success'
+        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0 # v3.0.4
+        with:
+          header: pr-title
+          delete: true
