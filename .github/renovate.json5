@@ -22,9 +22,14 @@
   internalChecksFilter: "strict",
   automerge: true,
   automergeType: "pr",
-  // Periodically refresh lockfiles (incl. mise.lock) even when no dependency
-  // version constraint changes. Requires "mise" in allowedUnsafeExecutions on
-  // the runner (set via RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
+  // Refresh mise.lock for in-range updates. The mise manager does NOT support
+  // rangeStrategy "update-lockfile" (its updateLockedDependency is a stub that
+  // reports "unsupported"), so per-dependency lockfile-only updates are dropped.
+  // lockFileMaintenance is the only mechanism that refreshes mise.lock without
+  // touching mise.toml: it runs `mise lock` (via the manager's updateArtifacts),
+  // re-resolving every constraint to the latest matching version. Requires "mise"
+  // in allowedUnsafeExecutions on the runner (set via
+  // RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
   lockFileMaintenance: {
     enabled: true,
   },
@@ -58,14 +63,19 @@
         commitMessageTopic: "dev tools",
       },
     },
-    // ---- mise: keep mise.lock fresh for in-range updates too ----
-    // update-lockfile = bump the locked version in mise.lock when a newer
-    // version still satisfies the mise.toml constraint (e.g. node "24"), without
-    // editing mise.toml. Out-of-range (major) updates fall back to "replace".
-    // Renovate updates mise.lock natively (no postUpgradeTasks needed).
+    // ---- mise: keep partial version pins (e.g. prek "0.4") out of mise.toml churn ----
+    // aqua-backed tools resolve to the github-tags datasource, which inherits
+    // Renovate's default `semver` versioning. Under `semver`, partial pins like
+    // "0.4" or "1" are *invalid*, so rangeStrategy "replace" rewrites mise.toml to
+    // a full version ("0.4" -> "0.4.5"). `npm` versioning treats them as valid
+    // ranges instead: in-range updates leave mise.toml untouched (the new version
+    // lands in mise.lock via lockFileMaintenance), while out-of-range updates bump
+    // the pin and preserve its format ("0.4" -> "0.5"). Tools on the npm/node/go
+    // datasources already use range-aware versioning and need no override.
     {
       matchManagers: ["mise"],
-      rangeStrategy: "update-lockfile",
+      matchDatasources: ["github-tags"],
+      versioning: "npm",
     },
   ],
   customManagers: [
