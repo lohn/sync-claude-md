@@ -1,0 +1,9 @@
+dist/
+*.exe
+*.test
+*.swp
+*.log
+.DS_Store
+.venv
+__pycache__/
+*.pyc
