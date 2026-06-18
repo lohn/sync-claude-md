@@ -9,7 +9,8 @@
       "package-name": "sync-claude-md-pre-commit",
       "extra-files": [
         "pyproject.toml",
-        "pypi/pyproject.toml",
+        { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" },
+        { "type": "toml", "path": "pypi/pyproject.toml", "jsonpath": "$.project.version" },
         { "type": "json", "path": "package.json", "jsonpath": "$.dependencies.sync-claude-md" },
         { "type": "json", "path": "npm/sync-claude-md/package.json", "jsonpath": "$.version" },
         {
