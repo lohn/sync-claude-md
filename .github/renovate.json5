@@ -46,9 +46,12 @@
       semanticCommitScope: "deps",
       versioning: "semver",
     },
-    // ---- mise + pre-commit: low-risk dev tooling, grouped together (single-update PR titles stay dependency-specific) ----
+    // ---- mise + pre-commit + dprint plugins: low-risk dev tooling, grouped together (single-update PR titles stay dependency-specific) ----
+    // dprint plugin updates come from the github>kachick/renovate-config-dprint
+    // preset, which detects them via custom (regex) managers. This repo defines
+    // no other custom managers, so "custom.regex" matches dprint plugins only.
     {
-      matchManagers: ["mise", "pre-commit"],
+      matchManagers: ["mise", "pre-commit", "custom.regex"],
       groupName: "dev tools",
       commitMessageTopic: "{{depName}}",
       group: {
