@@ -45,9 +45,19 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
+      - name: Compute fetch depth
+        id: fetch-depth
+        if: github.event_name == 'pull_request'
+        env:
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
+        # language=bash
+        run: echo "depth=$((PR_COMMITS + 1))" >> "$GITHUB_OUTPUT"
+
       # https://github.com/marketplace/actions/checkout
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: ${{ steps.fetch-depth.outputs.depth }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
