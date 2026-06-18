@@ -63,18 +63,20 @@
         commitMessageTopic: "dev tools",
       },
     },
-    // ---- mise: keep partial version pins (e.g. prek "0.4") out of mise.toml churn ----
-    // aqua-backed tools resolve to the github-tags datasource, which inherits
-    // Renovate's default `semver` versioning. Under `semver`, partial pins like
-    // "0.4" or "1" are *invalid*, so rangeStrategy "replace" rewrites mise.toml to
-    // a full version ("0.4" -> "0.4.5"). `npm` versioning treats them as valid
-    // ranges instead: in-range updates leave mise.toml untouched (the new version
-    // lands in mise.lock via lockFileMaintenance), while out-of-range updates bump
-    // the pin and preserve its format ("0.4" -> "0.5"). Tools on the npm/node/go
-    // datasources already use range-aware versioning and need no override.
+    // ---- mise: keep partial version pins (e.g. prek "0.4", "pipx:commitizen" "4") out of mise.toml churn ----
+    // Each mise backend inherits its datasource's default versioning, and several
+    // of them do not treat a partial pin as a range: under `semver` (aqua tools ->
+    // github-tags) "0.4" is *invalid*, and under `pep440` (pipx tools -> pypi) "4"
+    // is a single version, not ">=4 <5". With either, rangeStrategy "replace"
+    // rewrites mise.toml to a full version ("0.4" -> "0.4.5", "4" -> "4.16.3").
+    // Standardize every mise pin on `npm` versioning, which treats "0.4"/"4" as
+    // ranges: in-range updates leave mise.toml untouched (the new version lands in
+    // mise.lock via lockFileMaintenance), while out-of-range updates bump the pin
+    // and preserve its format ("0.4" -> "0.5", "4" -> "5"). Tools whose native
+    // versioning is already range-aware (npm/node/go) keep their pins under `npm`
+    // too, so this override is safe for them.
     {
       matchManagers: ["mise"],
-      matchDatasources: ["github-tags"],
       versioning: "npm",
     },
   ],
