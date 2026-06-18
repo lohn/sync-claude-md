@@ -1,10 +1,16 @@
 {
   "name": "sync-claude-md-windows-x64",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "sync-claude-md binary for Windows AMD64",
-  "os": ["win32"],
-  "cpu": ["x64"],
-  "files": ["sync-claude-md.exe"],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "sync-claude-md.exe"
+  ],
   "license": "MIT",
   "author": "lohn",
   "repository": {
