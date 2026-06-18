@@ -1,0 +1,35 @@
+- id: sync-claude-md
+  name: Sync CLAUDE.md with AGENTS.md
+  description: Create, update, or clean up CLAUDE.md so it references AGENTS.md (built from source via the Go toolchain).
+  entry: sync-claude-md
+  language: golang
+  always_run: true
+  pass_filenames: false
+  require_serial: true
+
+- id: sync-claude-md-pip
+  name: Sync CLAUDE.md with AGENTS.md (PyPI)
+  description: Create, update, or clean up CLAUDE.md so it references AGENTS.md (installs the sync-claude-md wheel from PyPI; requires Python).
+  entry: sync-claude-md
+  language: python
+  always_run: true
+  pass_filenames: false
+  require_serial: true
+
+- id: sync-claude-md-npm
+  name: Sync CLAUDE.md with AGENTS.md (npm)
+  description: Create, update, or clean up CLAUDE.md so it references AGENTS.md (installs the sync-claude-md package from npm; requires Node.js).
+  entry: sync-claude-md
+  language: node
+  always_run: true
+  pass_filenames: false
+  require_serial: true
+
+- id: sync-claude-md-system
+  name: Sync CLAUDE.md with AGENTS.md (system)
+  description: Create, update, or clean up CLAUDE.md so it references AGENTS.md (uses a sync-claude-md binary already installed on PATH).
+  entry: sync-claude-md
+  language: system
+  always_run: true
+  pass_filenames: false
+  require_serial: true
