@@ -1,16 +1,16 @@
 {
-  "name": "sync-claude-md-linux-x64",
+  "name": "@sync-claude-md/cli-win32-x64",
   "version": "0.0.0",
-  "description": "sync-claude-md binary for Linux AMD64",
-  "os": ["linux"],
+  "description": "sync-claude-md binary for Windows AMD64",
+  "os": ["win32"],
   "cpu": ["x64"],
-  "files": ["sync-claude-md"],
+  "files": ["sync-claude-md.exe"],
   "license": "MIT",
   "author": "lohn",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lohn/sync-claude-md.git",
-    "directory": "npm/sync-claude-md-linux-x64"
+    "directory": "npm/@sync-claude-md/cli-win32-x64"
   },
   "publishConfig": {
     "provenance": true

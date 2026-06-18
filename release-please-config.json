@@ -16,39 +16,39 @@
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-darwin-arm64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-darwin-arm64']"
         },
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-darwin-x64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-darwin-x64']"
         },
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-linux-arm64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-linux-arm64']"
         },
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-linux-x64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-linux-x64']"
         },
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-win32-arm64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-win32-arm64']"
         },
         {
           "type": "json",
           "path": "npm/sync-claude-md/package.json",
-          "jsonpath": "$.optionalDependencies['sync-claude-md-win32-x64']"
+          "jsonpath": "$.optionalDependencies['@sync-claude-md/cli-win32-x64']"
         },
-        { "type": "json", "path": "npm/sync-claude-md-darwin-arm64/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "npm/sync-claude-md-darwin-x64/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "npm/sync-claude-md-linux-arm64/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "npm/sync-claude-md-linux-x64/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "npm/sync-claude-md-win32-arm64/package.json", "jsonpath": "$.version" },
-        { "type": "json", "path": "npm/sync-claude-md-win32-x64/package.json", "jsonpath": "$.version" }
+        { "type": "json", "path": "npm/@sync-claude-md/cli-darwin-arm64/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/@sync-claude-md/cli-darwin-x64/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/@sync-claude-md/cli-linux-arm64/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/@sync-claude-md/cli-linux-x64/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/@sync-claude-md/cli-win32-arm64/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/@sync-claude-md/cli-win32-x64/package.json", "jsonpath": "$.version" }
       ]
     }
   }

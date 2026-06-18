@@ -4,16 +4,16 @@ const path = require('path');
 
 const platformPackages = {
   darwin: {
-    arm64: 'sync-claude-md-darwin-arm64',
-    x64: 'sync-claude-md-darwin-x64',
+    arm64: '@sync-claude-md/cli-darwin-arm64',
+    x64: '@sync-claude-md/cli-darwin-x64',
   },
   linux: {
-    arm64: 'sync-claude-md-linux-arm64',
-    x64: 'sync-claude-md-linux-x64',
+    arm64: '@sync-claude-md/cli-linux-arm64',
+    x64: '@sync-claude-md/cli-linux-x64',
   },
   win32: {
-    arm64: 'sync-claude-md-win32-arm64',
-    x64: 'sync-claude-md-win32-x64',
+    arm64: '@sync-claude-md/cli-win32-arm64',
+    x64: '@sync-claude-md/cli-win32-x64',
   },
 };
 

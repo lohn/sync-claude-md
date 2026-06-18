@@ -1,5 +1,5 @@
 {
-  "name": "sync-claude-md-darwin-x64",
+  "name": "@sync-claude-md/cli-darwin-x64",
   "version": "0.0.0",
   "description": "sync-claude-md binary for macOS AMD64",
   "os": ["darwin"],
@@ -10,7 +10,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lohn/sync-claude-md.git",
-    "directory": "npm/sync-claude-md-darwin-x64"
+    "directory": "npm/@sync-claude-md/cli-darwin-x64"
   },
   "publishConfig": {
     "provenance": true

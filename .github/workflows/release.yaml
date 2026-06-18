@@ -121,12 +121,12 @@ jobs:
         # language=bash
         run: |
           set -euo pipefail
-          install -m755 dist-bin/sync-claude-md_darwin_arm64      npm/sync-claude-md-darwin-arm64/sync-claude-md
-          install -m755 dist-bin/sync-claude-md_darwin_amd64      npm/sync-claude-md-darwin-x64/sync-claude-md
-          install -m755 dist-bin/sync-claude-md_linux_arm64       npm/sync-claude-md-linux-arm64/sync-claude-md
-          install -m755 dist-bin/sync-claude-md_linux_amd64       npm/sync-claude-md-linux-x64/sync-claude-md
-          install -m755 dist-bin/sync-claude-md_windows_arm64.exe npm/sync-claude-md-win32-arm64/sync-claude-md.exe
-          install -m755 dist-bin/sync-claude-md_windows_amd64.exe npm/sync-claude-md-win32-x64/sync-claude-md.exe
+          install -m755 dist-bin/sync-claude-md_darwin_arm64      npm/@sync-claude-md/cli-darwin-arm64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_darwin_amd64      npm/@sync-claude-md/cli-darwin-x64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_linux_arm64       npm/@sync-claude-md/cli-linux-arm64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_linux_amd64       npm/@sync-claude-md/cli-linux-x64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_windows_arm64.exe npm/@sync-claude-md/cli-win32-arm64/sync-claude-md.exe
+          install -m755 dist-bin/sync-claude-md_windows_amd64.exe npm/@sync-claude-md/cli-win32-x64/sync-claude-md.exe
 
       - name: Copy README into the meta package
         run: cp README.md npm/sync-claude-md/README.md
@@ -136,7 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           for d in darwin-arm64 darwin-x64 linux-arm64 linux-x64 win32-arm64 win32-x64; do
-            npm publish --access public --provenance "npm/sync-claude-md-$d"
+            npm publish --access public --provenance "npm/@sync-claude-md/cli-$d"
           done
           npm publish --access public --provenance npm/sync-claude-md
 
