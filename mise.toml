@@ -1,0 +1,14 @@
+[tools]
+actionlint = "1"
+dprint = "0"
+go = "1.26"
+goreleaser = "2"
+node = "24"
+"npm:renovate" = "43"
+"pipx:commitizen" = "4"
+prek = "0.4"
+uv = "0.11"
+
+[settings]
+minimum_release_age = "3d"
+lockfile = true

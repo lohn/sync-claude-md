@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sync-claude-md"
+version = "0.0.0"
+description = "Sync CLAUDE.md with AGENTS.md for AI coding agents"
+readme = "README.md"
+requires-python = ">=3"
+license = "MIT"
+keywords = ["claude", "agents", "pre-commit", "ai", "coding-agents", "claude-code"]
+authors = [{ name = "lohn" }]
+
+[project.urls]
+Homepage = "https://github.com/lohn/sync-claude-md"
+Repository = "https://github.com/lohn/sync-claude-md"
+
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"

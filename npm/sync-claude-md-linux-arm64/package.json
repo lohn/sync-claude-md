@@ -1,0 +1,18 @@
+{
+  "name": "sync-claude-md-linux-arm64",
+  "version": "0.0.0",
+  "description": "sync-claude-md binary for Linux ARM64",
+  "os": ["linux"],
+  "cpu": ["arm64"],
+  "files": ["sync-claude-md"],
+  "license": "MIT",
+  "author": "lohn",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lohn/sync-claude-md.git",
+    "directory": "npm/sync-claude-md-linux-arm64"
+  },
+  "publishConfig": {
+    "provenance": true
+  }
+}
