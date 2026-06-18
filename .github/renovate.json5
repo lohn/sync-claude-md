@@ -1,0 +1,70 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    "github>kachick/renovate-config-dprint#1.3.0",
+    "helpers:pinGitHubActionDigestsToSemver",
+    ":semanticCommits",
+    ":semanticCommitTypeAll(chore)",
+    ":dependencyDashboard",
+    ":timezone(Asia/Tokyo)",
+  ],
+  prConcurrentLimit: 10,
+  prHourlyLimit: 0,
+  labels: ["dependencies"],
+  rangeStrategy: "replace",
+  configMigration: true,
+  dependencyDashboard: true,
+  dependencyDashboardTitle: "Renovate Dependency Dashboard",
+  semanticCommitType: "chore",
+  semanticCommitScope: "deps",
+  minimumReleaseAge: "3 days",
+  internalChecksFilter: "strict",
+  automerge: true,
+  automergeType: "pr",
+  // Periodically refresh lockfiles (incl. mise.lock) even when no dependency
+  // version constraint changes. Requires "mise" in allowedUnsafeExecutions on
+  // the runner (set via RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
+  lockFileMaintenance: {
+    enabled: true,
+  },
+  // The pre-commit manager is disabled by default; enable it so that the
+  // `rev:` of third-party hook repos in .pre-commit-config.yaml is updated.
+  "pre-commit": {
+    enabled: true,
+  },
+  packageRules: [
+    // ---- GitHub Actions: group multiple updates, but keep single-update PR titles dependency-specific ----
+    {
+      matchManagers: ["github-actions"],
+      groupName: "github-actions",
+      commitMessageTopic: "{{depName}}",
+      group: {
+        commitMessageTopic: "github-actions",
+      },
+      semanticCommitType: "ci",
+      semanticCommitScope: "deps",
+      versioning: "semver",
+    },
+    // ---- mise + pre-commit: low-risk dev tooling, grouped together (single-update PR titles stay dependency-specific) ----
+    {
+      matchManagers: ["mise", "pre-commit"],
+      groupName: "dev tools",
+      commitMessageTopic: "{{depName}}",
+      group: {
+        commitMessageTopic: "dev tools",
+      },
+    },
+    // ---- mise: keep mise.lock fresh for in-range updates too ----
+    // update-lockfile = bump the locked version in mise.lock when a newer
+    // version still satisfies the mise.toml constraint (e.g. node "24"), without
+    // editing mise.toml. Out-of-range (major) updates fall back to "replace".
+    // Renovate updates mise.lock natively (no postUpgradeTasks needed).
+    {
+      matchManagers: ["mise"],
+      rangeStrategy: "update-lockfile",
+    },
+  ],
+  customManagers: [
+  ],
+}

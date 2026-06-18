@@ -1,0 +1,52 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+  - pre-push
+
+repos:
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes
+
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    rev: 43.227.0
+    hooks:
+      - id: renovate-config-validator
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint-system
+
+  - repo: https://github.com/lohn/pre-commit-mise-lock
+    rev: v0.1.0
+    hooks:
+      - id: mise-lock
+
+  - repo: local
+    hooks:
+      - id: dprint-format
+        name: dprint format
+        stages: [pre-commit]
+        description: Format using dprint
+        entry: dprint fmt --allow-no-files
+        language: unsupported
+        pass_filenames: true
+
+      - id: commitizen
+        name: commitizen check
+        description: Check whether the current commit message follows committing rules
+        entry: cz check
+        args: [--allow-abort, --commit-msg-file]
+        language: unsupported
+        stages: [commit-msg]
+
+      - id: commitizen-branch
+        name: commitizen check branch
+        description: Check commit messages on the pushed branch
+        entry: bash -c 'cz check --rev-range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"' --
+        language: unsupported
+        always_run: true
+        pass_filenames: false
+        stages: [pre-push]
