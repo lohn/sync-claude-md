@@ -1,11 +1,3 @@
 {
-  ".": "0.0.0",
-  "npm/sync-claude-md": "0.0.0",
-  "npm/sync-claude-md-darwin-arm64": "0.0.0",
-  "npm/sync-claude-md-darwin-x64": "0.0.0",
-  "npm/sync-claude-md-linux-arm64": "0.0.0",
-  "npm/sync-claude-md-linux-x64": "0.0.0",
-  "npm/sync-claude-md-windows-arm64": "0.0.0",
-  "npm/sync-claude-md-windows-x64": "0.0.0",
-  "pypi": "0.0.0"
+  ".": "0.0.0"
 }
