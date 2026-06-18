@@ -1,0 +1,70 @@
+version: 2
+
+project_name: sync-claude-md
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: sync-claude-md
+    main: ./cmd/sync-claude-md
+    binary: sync-claude-md
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  # Human-friendly archives (tar.gz / zip) for manual downloads from Releases.
+  - id: sync-claude-md
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+  # Raw per-platform binaries consumed by the npm / PyPI packaging jobs.
+  # Windows artifacts get a `.exe` extension appended automatically.
+  - id: raw
+    ids:
+      - sync-claude-md
+    formats: [binary]
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "Merge pull request"
+      - "Merge branch"
+
+# release-please owns the GitHub Release/tag; goreleaser only builds artifacts.
+# The release workflow runs `release --skip=publish` and uploads binaries to
+# the release-please-created release via the GitHub CLI.
+release:
+  disable: true

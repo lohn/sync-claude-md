@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-component-in-tag": false,
+  "separate-pull-requests": false,
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "component": "sync-claude-md-pre-commit",
+      "package-name": "sync-claude-md-pre-commit",
+      "extra-files": [
+        { "type": "json", "path": "package.json", "jsonpath": "$.dependencies.sync-claude-md" },
+        "pyproject.toml"
+      ]
+    },
+    "npm/sync-claude-md": {
+      "release-type": "node",
+      "component": "sync-claude-md",
+      "extra-files": [
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['sync-claude-md-darwin-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['sync-claude-md-darwin-x64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['sync-claude-md-linux-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['sync-claude-md-linux-x64']" },
+        {
+          "type": "json",
+          "path": "package.json",
+          "jsonpath": "$.optionalDependencies['sync-claude-md-windows-arm64']"
+        },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['sync-claude-md-windows-x64']" }
+      ]
+    },
+    "npm/sync-claude-md-darwin-arm64": { "release-type": "node", "component": "sync-claude-md-darwin-arm64" },
+    "npm/sync-claude-md-darwin-x64": { "release-type": "node", "component": "sync-claude-md-darwin-x64" },
+    "npm/sync-claude-md-linux-arm64": { "release-type": "node", "component": "sync-claude-md-linux-arm64" },
+    "npm/sync-claude-md-linux-x64": { "release-type": "node", "component": "sync-claude-md-linux-x64" },
+    "npm/sync-claude-md-windows-arm64": { "release-type": "node", "component": "sync-claude-md-windows-arm64" },
+    "npm/sync-claude-md-windows-x64": { "release-type": "node", "component": "sync-claude-md-windows-x64" },
+    "pypi": {
+      "release-type": "python",
+      "component": "sync-claude-md-pypi",
+      "package-name": "sync-claude-md"
+    }
+  },
+  "plugins": [
+    {
+      "type": "linked-versions",
+      "groupName": "sync-claude-md",
+      "components": [
+        "sync-claude-md-pre-commit",
+        "sync-claude-md",
+        "sync-claude-md-darwin-arm64",
+        "sync-claude-md-darwin-x64",
+        "sync-claude-md-linux-arm64",
+        "sync-claude-md-linux-x64",
+        "sync-claude-md-windows-arm64",
+        "sync-claude-md-windows-x64",
+        "sync-claude-md-pypi"
+      ]
+    }
+  ]
+}

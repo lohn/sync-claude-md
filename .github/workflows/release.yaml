@@ -1,0 +1,186 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      # https://github.com/marketplace/actions/release-please-action
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        id: rp
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  goreleaser:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      # https://github.com/marketplace/actions/checkout
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Initialize tools
+        uses: ./.github/actions/init-tools
+        with:
+          cache-key: release
+
+      - name: Build artifacts with GoReleaser (no publish)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goreleaser release --clean --skip=publish
+
+      - name: Upload raw binaries and checksums to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          mkdir -p upload
+          jq -r '.[] | select(.type=="Binary" and .extra.ID=="raw") | "\(.path)\t\(.name)"' dist/artifacts.json |
+            while IFS=$'\t' read -r path name; do
+              cp "$path" "upload/$name"
+            done
+          gh release upload "$TAG" upload/* dist/checksums.txt --clobber
+
+      # https://github.com/marketplace/actions/attest-build-provenance
+      - name: Attest build provenance for all artifacts
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-checksums: dist/checksums.txt
+
+  npm-publish:
+    needs: [release-please, goreleaser]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # https://github.com/marketplace/actions/checkout
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Initialize tools
+        uses: ./.github/actions/init-tools
+        with:
+          cache-key: release
+
+      - name: Download raw binaries from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        # language=bash
+        run: |
+          gh release download "$TAG" --dir dist-bin \
+            --pattern 'sync-claude-md_linux_*' \
+            --pattern 'sync-claude-md_darwin_*' \
+            --pattern 'sync-claude-md_windows_*'
+
+      - name: Place binaries into platform packages
+        # language=bash
+        run: |
+          set -euo pipefail
+          install -m755 dist-bin/sync-claude-md_darwin_arm64      npm/sync-claude-md-darwin-arm64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_darwin_amd64      npm/sync-claude-md-darwin-x64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_linux_arm64       npm/sync-claude-md-linux-arm64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_linux_amd64       npm/sync-claude-md-linux-x64/sync-claude-md
+          install -m755 dist-bin/sync-claude-md_windows_arm64.exe npm/sync-claude-md-windows-arm64/sync-claude-md.exe
+          install -m755 dist-bin/sync-claude-md_windows_amd64.exe npm/sync-claude-md-windows-x64/sync-claude-md.exe
+
+      - name: Copy README into the meta package
+        run: cp README.md npm/sync-claude-md/README.md
+
+      - name: Publish platform packages then the meta package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          for d in darwin-arm64 darwin-x64 linux-arm64 linux-x64 windows-arm64 windows-x64; do
+            npm publish --access public --provenance "npm/sync-claude-md-$d"
+          done
+          npm publish --access public --provenance npm/sync-claude-md
+
+  pypi-publish:
+    needs: [release-please, goreleaser]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # https://github.com/marketplace/actions/checkout
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Initialize tools
+        uses: ./.github/actions/init-tools
+        with:
+          cache-key: release
+
+      - name: Download raw binaries from the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        # language=bash
+        run: |
+          gh release download "$TAG" --dir dist-bin \
+            --pattern 'sync-claude-md_linux_*' \
+            --pattern 'sync-claude-md_darwin_*' \
+            --pattern 'sync-claude-md_windows_*'
+
+      - name: Copy README into pypi
+        run: cp README.md pypi/README.md
+
+      - name: Build platform wheels
+        working-directory: pypi
+        # language=bash
+        run: |
+          set -euo pipefail
+          build_one() {
+            local asset="$1" script="$2" tag="$3"
+            cp "../dist-bin/$asset" "./$script"
+            BINARY_PATH="$PWD/$script" SCRIPT_NAME="$script" WHEEL_TAG="$tag" \
+              uv build --wheel --python 3.12 --out-dir dist .
+            rm -f "./$script"
+          }
+          build_one sync-claude-md_linux_amd64       sync-claude-md     py3-none-manylinux_2_17_x86_64
+          build_one sync-claude-md_linux_arm64       sync-claude-md     py3-none-manylinux_2_17_aarch64
+          build_one sync-claude-md_darwin_arm64      sync-claude-md     py3-none-macosx_11_0_arm64
+          build_one sync-claude-md_darwin_amd64      sync-claude-md     py3-none-macosx_10_9_x86_64
+          build_one sync-claude-md_windows_amd64.exe sync-claude-md.exe py3-none-win_amd64
+          build_one sync-claude-md_windows_arm64.exe sync-claude-md.exe py3-none-win_arm64
+
+      - name: Validate wheels
+        run: uvx twine check pypi/dist/*.whl
+
+      # https://github.com/marketplace/actions/pypi-publish
+      - name: Publish to PyPI via Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          packages-dir: pypi/dist

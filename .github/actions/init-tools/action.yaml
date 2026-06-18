@@ -1,0 +1,17 @@
+name: Initialize tools
+description: Install the project's mise-managed toolchain.
+
+inputs:
+  cache-key:
+    description: Extra suffix for the mise cache key, used to isolate caches per workflow.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # https://github.com/marketplace/actions/mise-action
+    - name: Set up mise
+      uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      with:
+        cache_key_prefix: mise-${{ inputs.cache-key }}
