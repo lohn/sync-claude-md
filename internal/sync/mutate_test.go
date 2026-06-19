@@ -153,15 +153,39 @@ func TestRemoveRefDeletesEmptyFile(t *testing.T) {
 	}
 }
 
-// TestRemoveRefSkipsInlineReference does nothing when the reference is not the
-// first non-empty line.
-func TestRemoveRefSkipsInlineReference(t *testing.T) {
+// TestRemoveRefRemovesMovedReference strips the reference even when the user has
+// moved it below other content, mirroring updateTarget's "present anywhere" rule.
+func TestRemoveRefRemovesMovedReference(t *testing.T) {
 	for _, rc := range refCases {
 		t.Run(rc.name, func(t *testing.T) {
 			tmpDir := setupTestDir(t)
 			chdir(t, tmpDir)
 
-			original := "# Title\n\n" + rc.ref + "\n"
+			writeFile(t, "TARGET.md", "# Title\n\n"+rc.ref+"\n")
+
+			modified, err := removeRef("TARGET.md", rc.ref, false)
+			if err != nil {
+				t.Fatalf("removeRef failed: %v", err)
+			}
+			if !modified {
+				t.Fatal("expected modified=true for moved reference")
+			}
+			if got := readFile(t, "TARGET.md"); got != "# Title\n" {
+				t.Fatalf("got %q, want %q", got, "# Title\n")
+			}
+		})
+	}
+}
+
+// TestRemoveRefIgnoresInlineSubstring leaves lines that merely contain the
+// reference as a substring untouched; only standalone reference lines are removed.
+func TestRemoveRefIgnoresInlineSubstring(t *testing.T) {
+	for _, rc := range refCases {
+		t.Run(rc.name, func(t *testing.T) {
+			tmpDir := setupTestDir(t)
+			chdir(t, tmpDir)
+
+			original := "See " + rc.ref + " for details.\n"
 			writeFile(t, "TARGET.md", original)
 
 			modified, err := removeRef("TARGET.md", rc.ref, false)
@@ -169,7 +193,7 @@ func TestRemoveRefSkipsInlineReference(t *testing.T) {
 				t.Fatalf("removeRef failed: %v", err)
 			}
 			if modified {
-				t.Fatal("expected modified=false for inline reference")
+				t.Fatal("expected modified=false for substring-only reference")
 			}
 			if got := readFile(t, "TARGET.md"); got != original {
 				t.Fatalf("content modified unexpectedly: %q", got)

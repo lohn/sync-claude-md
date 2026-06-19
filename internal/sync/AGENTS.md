@@ -28,6 +28,11 @@ sync.go         Run orchestration + Options
 - **`updateTarget` is idempotent on presence anywhere.** It adds the reference
   (at the top) only if it is not already present _anywhere_ in the file, so a
   reference moved lower by the user is left untouched.
+- **`removeRef` strips the reference anywhere, symmetric with `updateTarget`.** A
+  line counts as the reference when, trimmed, it equals `ref` exactly; every such
+  standalone line is removed wherever it sits (so a reference the user moved lower
+  is still cleaned up), along with one blank line immediately after each. Lines
+  that merely contain `ref` as a substring are left untouched.
 - **`removeRef` no-ops on a missing file.** `Run` calls it for every deleted
   AGENTS.md across each selected target, so a directory that never had a given
   target file must not error.
