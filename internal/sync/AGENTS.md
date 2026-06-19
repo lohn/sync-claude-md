@@ -9,9 +9,10 @@ point in `cmd/sync-claude-md` wires flags into `Options` and calls `Run`.
 constants.go    Target definitions (CLAUDE.md/GEMINI.md), file mode, skip-dir set
 targets.go      target / targetFile types, resolveTargets
 discover.go     AGENTS.md + target-file discovery (filesystem walk, git, explicit args)
-mutate.go       Single-file create / update / remove, parameterized by reference line
-sync.go         Run orchestration + Options
-*_test.go       Per-file unit tests
+mutate.go       Pure plan/apply: planSync / planCleanup decide a plannedAction; applyAction writes it
+sync.go         Run orchestration + Options; planActions (decide all) → applyActions (write all)
+precommit.go    pre-commit subcommand: git index checks, RunPreCommit, CheckPreCommit
+*_test.go       Per-file unit tests (precommit_test.go uses real git repos)
 ```
 
 ## Architecture notes
@@ -28,9 +29,22 @@ sync.go         Run orchestration + Options
 - **`updateTarget` is idempotent on presence anywhere.** It adds the reference
   (at the top) only if it is not already present _anywhere_ in the file, so a
   reference moved lower by the user is left untouched.
-- **`removeRef` no-ops on a missing file.** `Run` calls it for every deleted
-  AGENTS.md across each selected target, so a directory that never had a given
-  target file must not error.
+- **`planCleanup` no-ops on a missing file.** `planActions` calls it for every
+  deleted AGENTS.md across each selected target, so a directory that never had a
+  given target file must not produce an action.
+- **Plan first, then apply — no partial writes.** `planActions` decides the full
+  set of `plannedAction`s without touching disk; `applyActions` writes them. This
+  keeps `Run` and the `pre-commit` path from leaving half-written state, and lets
+  `pre-commit` verify before any write happens.
+- **`pre-commit` verifies against the git index, not the worktree.** `precommit.go`
+  enforces two independent axes: **destroy protection** (`axisDestroy`, refuse to
+  overwrite a target with unstaged changes — cleared by `--force`) and **index
+  sync** (`axisSync`, the `@AGENTS.md` reference must be staged so the sync lands
+  in the commit — cleared by `--stage` or a manual `git add`). The check looks at
+  the staged blob (`git cat-file blob :path`), so a file present on disk but
+  untracked still fails — fixing the original "second run silently passes" bug.
+  Git-ignored targets are a complete no-op (skipped in `planActions` and
+  `CheckPreCommit`).
 
 ## Testing
 
