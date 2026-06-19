@@ -40,7 +40,8 @@ Examples:
 
 ```
 feat: add opt-in GEMINI.md sync via --gemini
-fix: no-op removeRef when the target file is missing
+feat(sync): support GEMINI.md as a sync target
+fix(sync): no-op removeRef when the target file is missing
 docs: document the testing workflow
 ci: pin actions to commit SHAs
 ```
@@ -66,10 +67,10 @@ prek install
 
 ## Before you open a pull request
 
-- Run the hooks against everything:
+- Run the hooks:
 
   ```sh
-  prek run --all-files
+  prek run
   ```
 
 - Run the test suite (see [Testing](#testing)).

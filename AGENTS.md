@@ -14,30 +14,16 @@ With `--gemini`, it does the same for `GEMINI.md` using Gemini's import syntax
 ## Repository layout
 
 ```
-cmd/sync-claude-md/main.go   CLI entry point: flag parsing, target selection, exit codes
-internal/sync/               Core logic, split by responsibility:
-  constants.go               Target definitions (CLAUDE.md/GEMINI.md), file mode, skip-dir set
-  targets.go                 target / targetFile types, resolveTargets
-  discover.go                AGENTS.md + target-file discovery (filesystem walk, git, explicit args)
-  mutate.go                  Single-file create / update / remove (parameterized by reference line)
-  sync.go                    Run orchestration + Options
-  *_test.go                  Per-file unit tests
-npm/, pypi/                  Binary-distribution wrappers only — no real logic lives here
-docs/husky.md                Husky integration guide
-README.md, README.ja.md, README.ko.md   User docs (keep all three in sync)
+cmd/sync-claude-md/   CLI entry point        → see cmd/sync-claude-md/AGENTS.md
+internal/sync/        Core logic             → see internal/sync/AGENTS.md
+npm/, pypi/           Binary-distribution wrappers — no real logic
+docs/                 Integration guides (e.g. Husky)
+README.md, README.ja.md, README.ko.md        User docs (keep all three in sync)
 ```
 
-`npm/` and `pypi/` package and ship the prebuilt binary for their ecosystems;
-the actual implementation is entirely in `cmd/` and `internal/`.
-
-## Architecture notes
-
-- `mutate.go` is generic over a target's reference line (`ref`). The only
-  difference between CLAUDE.md and GEMINI.md is the `target{filename, ref}` data
-  in `constants.go` — do not fork the read/write logic per agent.
-- The default-target decision lives in the **CLI** (`main.go`): CLAUDE.md is on
-  by default, GEMINI.md is opt-in via `--gemini`, `--no-claude` opts CLAUDE.md
-  out. `resolveTargets` is a literal mapping of the `Options` booleans.
+The implementation lives entirely in `cmd/` and `internal/`. `npm/` and `pypi/`
+only package and ship the prebuilt binary for their ecosystems. Each code
+directory has its own `AGENTS.md` with the details for that package.
 
 ## Development
 
@@ -57,7 +43,7 @@ go test ./...
 go vet ./...
 golangci-lint run         # lint
 golangci-lint fmt         # format (gofumpt + goimports)
-prek run --all-files      # run every hook
+prek run                  # run the hooks
 ```
 
 ## Conventions
@@ -71,8 +57,7 @@ prek run --all-files      # run every hook
   format — don't hand-format.
 - Keep the three READMEs (`README.md`, `README.ja.md`, `README.ko.md`) consistent
   when changing user-facing behavior.
-- Add or update unit tests in `internal/sync/*_test.go` for behavior changes;
-  mutation tests are table-driven over each target's reference line.
+- Add or update unit tests in `internal/sync/*_test.go` for behavior changes.
 
 ## Release
 
