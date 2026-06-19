@@ -1,0 +1,72 @@
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # https://github.com/marketplace/actions/create-github-app-token
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
+
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # After a release PR is merged the manifest version has no tag yet. Pushing
+      # the tag with the app token (not GITHUB_TOKEN) triggers the Release
+      # workflow. Only releases are immutable, tags are not, so this is safe.
+      - name: Create the release tag if missing
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r '.["."]' .release-please-manifest.json)
+          tag="v$version"
+          if gh api "repos/$GH_REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag already exists; nothing to do"
+          else
+            gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA"
+            echo "created $tag"
+          fi
+
+      # release-please only manages versioning and the release PR; the GitHub
+      # release is created by the Release workflow. Labels are skipped so a
+      # merged-but-not-yet-released PR never blocks opening the next release PR.
+      # https://github.com/marketplace/actions/release-please-action
+      - name: Run release-please
+        id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          skip-github-release: true
+          skip-labeling: true
+
+      - name: Enable auto-merge on the release pull request
+        if: ${{ steps.rp.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PRS: ${{ steps.rp.outputs.prs }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          echo "$PRS" | jq -r '.[].number' | while read -r pr; do
+            gh pr merge "$pr" --auto --squash
+          done

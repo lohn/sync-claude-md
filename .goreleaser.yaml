@@ -52,16 +52,11 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+# Release notes come from CHANGELOG.md (maintained by release-please) and are
+# passed to goreleaser via --release-notes, so its own changelog generation is
+# disabled to keep CHANGELOG.md the single source of truth.
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
-      - "^ci:"
-      - "Merge pull request"
-      - "Merge branch"
+  disable: true
 
 # release-please manages versioning, the release PR and the tag; goreleaser
 # owns the GitHub Release. It is created as a draft so every artifact is
@@ -69,3 +64,6 @@ changelog:
 # once published, tags are not).
 release:
   draft: true
+  # Replace artifacts on re-runs so a retried, still-draft release does not
+  # collide with the one a previous attempt created.
+  mode: replace
