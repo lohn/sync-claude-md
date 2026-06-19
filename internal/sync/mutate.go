@@ -13,7 +13,7 @@ const (
 	actionNone      actionKind = iota // nothing to do
 	actionCreate                      // create a new file containing only the reference
 	actionUpdate                      // prepend the reference to an existing file
-	actionRemoveRef                   // strip the leading reference, keep the rest
+	actionRemoveRef                   // strip the reference(s), keep the rest
 	actionDelete                      // remove the file (empty after reference removal)
 )
 
@@ -60,7 +60,7 @@ func planCleanup(targetPath, ref string) (plannedAction, error) {
 		return plannedAction{}, err
 	}
 
-	newContent, removed := withLeadingRefRemoved(string(content), ref)
+	newContent, removed := withRefRemoved(string(content), ref)
 	if !removed {
 		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
 	}
@@ -115,40 +115,40 @@ func withRefPrepended(content, ref string) (string, bool) {
 	return strings.Join(newLines, "\n"), true
 }
 
-// withLeadingRefRemoved strips ref when it is the first non-empty line, along
-// with any blank lines immediately following it. It returns (content, false)
-// when ref is absent or only appears inline (not at the top), leaving inline
-// references untouched.
-func withLeadingRefRemoved(content, ref string) (string, bool) {
+// withRefRemoved strips every standalone occurrence of ref — a line that, trimmed
+// of surrounding whitespace, equals ref exactly — wherever it appears (not only
+// at the top), mirroring withRefPrepended's "present anywhere" rule. One blank
+// line immediately following each removed reference is dropped too, so empty
+// lines do not accumulate. Lines that merely contain ref as a substring (e.g.
+// "See @AGENTS.md for details.") are left untouched. It returns (content, false)
+// when no standalone reference line is present.
+func withRefRemoved(content, ref string) (string, bool) {
 	lines := strings.Split(content, "\n")
 
-	firstNonEmpty := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			firstNonEmpty = i
+	// The reference must appear as a standalone line somewhere; otherwise there
+	// is nothing to remove.
+	found := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == ref {
+			found = true
 			break
 		}
 	}
-
-	if firstNonEmpty < 0 || strings.TrimSpace(lines[firstNonEmpty]) != ref {
+	if !found {
 		return content, false
 	}
 
+	// Drop every standalone reference line, plus one blank line immediately
+	// following each, to avoid leaving accumulated empty lines behind.
 	var newLines []string
-	skipping := true // skip blank lines immediately after the reference
-	for i, line := range lines {
-		if i < firstNonEmpty {
-			newLines = append(newLines, line)
+	for i := 0; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == ref {
+			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
+				i++
+			}
 			continue
 		}
-		if i == firstNonEmpty {
-			continue // drop the reference line itself
-		}
-		if skipping && strings.TrimSpace(line) == "" {
-			continue
-		}
-		skipping = false
-		newLines = append(newLines, line)
+		newLines = append(newLines, lines[i])
 	}
 
 	return strings.Join(newLines, "\n"), true
