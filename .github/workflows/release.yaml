@@ -36,13 +36,14 @@ jobs:
 
       # Use the section for this version from CHANGELOG.md as the release notes,
       # so the GitHub Release matches CHANGELOG.md. release-please puts the newest
-      # version first, so extract the body of the first "## " section.
+      # version first, so extract the body of the first "## " section. Write it
+      # outside the repo so goreleaser does not see a dirty working tree.
       - name: Extract release notes from CHANGELOG.md
         # language=bash
         run: |
           set -euo pipefail
-          awk '/^## / { n++; if (n >= 2) exit; next } n == 1 { print }' CHANGELOG.md > release-notes.md
-          if ! grep -q '[^[:space:]]' release-notes.md; then
+          awk '/^## / { n++; if (n >= 2) exit; next } n == 1 { print }' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          if ! grep -q '[^[:space:]]' "$RUNNER_TEMP/release-notes.md"; then
             echo "error: no release notes extracted from CHANGELOG.md" >&2
             exit 1
           fi
@@ -52,7 +53,7 @@ jobs:
       - name: Build and create the draft release with GoReleaser
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: goreleaser release --clean --release-notes release-notes.md
+        run: goreleaser release --clean --release-notes "$RUNNER_TEMP/release-notes.md"
 
       # https://github.com/marketplace/actions/attest-build-provenance
       - name: Attest build provenance for all artifacts
