@@ -66,7 +66,7 @@ func TestCreateNewClaude(t *testing.T) {
 
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestUpdateExistingClaude(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "# Existing Content\n\nSome text.\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestPrependInsertsBlankLine(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "# Existing\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestReferenceAnywhereIsKept(t *testing.T) {
 	original := "# Title\n\nSome intro.\n\n@AGENTS.md\n"
 	writeFile(t, "CLAUDE.md", original)
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestIdempotent(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n\n# Existing\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestCleanupRemovesReference(t *testing.T) {
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n\n# Existing\n")
 
 	// First run to sync
-	_, err := Run(Options{All: true})
+	_, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestCleanupRemovesReference(t *testing.T) {
 	_ = os.Remove("AGENTS.md")
 
 	// Run again
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestCleanupDeletesEmptyFile(t *testing.T) {
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
 
 	// Sync first
-	_, err := Run(Options{All: true})
+	_, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestCleanupDeletesEmptyFile(t *testing.T) {
 	_ = os.Remove("AGENTS.md")
 
 	// Run cleanup
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestCheckMode(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	// No CLAUDE.md
 
-	changed, err := Run(Options{All: true, Check: true})
+	changed, err := Run(Options{All: true, Check: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestCheckModeNoChanges(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
 
-	changed, err := Run(Options{All: true, Check: true})
+	changed, err := Run(Options{All: true, Check: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestSubdirectory(t *testing.T) {
 
 	writeFile(t, "src/AGENTS.md", "# Agents\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestMultipleDirectories(t *testing.T) {
 	writeFile(t, "src/AGENTS.md", "# Src Agents\n")
 	writeFile(t, "docs/AGENTS.md", "# Docs Agents\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -327,7 +327,7 @@ func TestMultipleDirectories(t *testing.T) {
 	}
 
 	// Run again should be idempotent
-	changed, err = Run(Options{All: true})
+	changed, err = Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -345,7 +345,7 @@ func TestExplicitFilesArgument(t *testing.T) {
 	writeFile(t, "src/AGENTS.md", "# Src Agents\n")
 
 	// Only process root AGENTS.md
-	changed, err := Run(Options{Files: []string{"AGENTS.md"}})
+	changed, err := Run(Options{Files: []string{"AGENTS.md"}, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestCleanupMultipleDirectories(t *testing.T) {
 	writeFile(t, "docs/AGENTS.md", "# Docs Agents\n")
 
 	// Initial sync
-	_, err := Run(Options{All: true})
+	_, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestCleanupMultipleDirectories(t *testing.T) {
 	_ = os.Remove("docs/AGENTS.md")
 
 	// Run cleanup
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -415,7 +415,7 @@ func TestSkipsGitDir(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Root Agents\n")
 	writeFile(t, ".git/AGENTS.md", "# Git Agents\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -441,7 +441,7 @@ func TestHiddenDirIsScanned(t *testing.T) {
 
 	writeFile(t, ".hidden/AGENTS.md", "# Hidden Agents\n")
 
-	changed, err := Run(Options{All: true})
+	changed, err := Run(Options{All: true, Claude: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -453,5 +453,143 @@ func TestHiddenDirIsScanned(t *testing.T) {
 	content := readFile(t, ".hidden/CLAUDE.md")
 	if !strings.HasPrefix(content, "@AGENTS.md") {
 		t.Fatalf("expected .hidden/CLAUDE.md to start with @AGENTS.md, got:\n%s", content)
+	}
+}
+
+// TestGeminiCreate creates GEMINI.md with the @./AGENTS.md reference.
+func TestGeminiCreate(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	changed, err := Run(Options{All: true, Gemini: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true")
+	}
+
+	content := readFile(t, "GEMINI.md")
+	if content != "@./AGENTS.md\n" {
+		t.Fatalf("expected GEMINI.md to contain @./AGENTS.md, got:\n%q", content)
+	}
+
+	// CLAUDE.md must not be created when only --gemini is requested.
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Fatal("expected CLAUDE.md to NOT exist when only Gemini selected")
+	}
+}
+
+// TestGeminiUpdatePrependsReference adds @./AGENTS.md to an existing GEMINI.md.
+func TestGeminiUpdatePrependsReference(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "GEMINI.md", "# Existing\n")
+
+	changed, err := Run(Options{All: true, Gemini: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true")
+	}
+
+	content := readFile(t, "GEMINI.md")
+	if content != "@./AGENTS.md\n\n# Existing\n" {
+		t.Fatalf("unexpected GEMINI.md content:\n%q", content)
+	}
+}
+
+// TestSyncsBothTargets creates both CLAUDE.md and GEMINI.md when both targets
+// are selected.
+func TestSyncsBothTargets(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	changed, err := Run(Options{All: true, Claude: true, Gemini: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true")
+	}
+
+	if content := readFile(t, "CLAUDE.md"); content != "@AGENTS.md\n" {
+		t.Fatalf("unexpected CLAUDE.md content:\n%q", content)
+	}
+	if content := readFile(t, "GEMINI.md"); content != "@./AGENTS.md\n" {
+		t.Fatalf("unexpected GEMINI.md content:\n%q", content)
+	}
+
+	// Idempotent on a second run.
+	changed, err = Run(Options{All: true, Claude: true, Gemini: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if changed {
+		t.Fatal("expected changed=false on second run")
+	}
+}
+
+// TestGeminiCleanupRemovesReference removes @./AGENTS.md and deletes the empty
+// GEMINI.md when AGENTS.md is gone.
+func TestGeminiCleanupRemovesReference(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	if _, err := Run(Options{All: true, Gemini: true}); err != nil {
+		t.Fatalf("setup Run failed: %v", err)
+	}
+
+	_ = os.Remove("AGENTS.md")
+
+	changed, err := Run(Options{All: true, Gemini: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true after cleanup")
+	}
+
+	if _, err := os.Stat("GEMINI.md"); !os.IsNotExist(err) {
+		t.Fatal("expected GEMINI.md to be deleted")
+	}
+}
+
+// TestCleanupOnlyTouchesSelectedTargets verifies that a cleanup scoped to one
+// target leaves the other target's file untouched.
+func TestCleanupOnlyTouchesSelectedTargets(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	// Create both targets.
+	if _, err := Run(Options{All: true, Claude: true, Gemini: true}); err != nil {
+		t.Fatalf("setup Run failed: %v", err)
+	}
+
+	_ = os.Remove("AGENTS.md")
+
+	// Clean up only Gemini.
+	if _, err := Run(Options{All: true, Gemini: true}); err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+
+	if _, err := os.Stat("GEMINI.md"); !os.IsNotExist(err) {
+		t.Fatal("expected GEMINI.md to be deleted")
+	}
+	// CLAUDE.md should still carry its (now stale) reference since it was not selected.
+	content := readFile(t, "CLAUDE.md")
+	if !strings.Contains(content, "@AGENTS.md") {
+		t.Fatalf("expected CLAUDE.md to be untouched, got:\n%q", content)
 	}
 }

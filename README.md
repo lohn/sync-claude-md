@@ -60,9 +60,21 @@ sync-claude-md --all
 # Dry-run: check without making changes
 sync-claude-md --check
 
+# Also sync GEMINI.md (@./AGENTS.md) alongside CLAUDE.md
+sync-claude-md --gemini
+
+# Sync GEMINI.md only
+sync-claude-md --gemini --no-claude
+
 # Process specific files
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
 ```
+
+**Target flags:**
+
+- `CLAUDE.md` is synced by default
+- `--gemini` — also sync `GEMINI.md` (`@./AGENTS.md`) in each directory
+- `--no-claude` — skip `CLAUDE.md` (use with `--gemini` to sync `GEMINI.md` only)
 
 **Exit codes:**
 
@@ -124,12 +136,14 @@ For each `AGENTS.md` found, a `CLAUDE.md` is created in the **same directory** w
 
 The `@path/to/file` syntax is resolved relative to the `CLAUDE.md` file itself (not CWD), so `@AGENTS.md` always points to the correct file.
 
+With `--gemini`, a `GEMINI.md` is created the same way using Gemini's import syntax `@./AGENTS.md`.
+
 ### Idempotent & Safe
 
-- Only adds `@AGENTS.md` if not already present at the top
+- Only adds the reference if not already present at the top
 - Preserves all existing content
 - Removes references automatically when `AGENTS.md` is deleted
-- Deletes empty `CLAUDE.md` files after cleanup
+- Deletes empty instruction files after cleanup
 
 ## License
 

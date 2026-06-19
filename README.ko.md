@@ -60,9 +60,21 @@ sync-claude-md --all
 # 드라이런: 변경 없이 확인
 sync-claude-md --check
 
+# CLAUDE.md와 함께 GEMINI.md(@./AGENTS.md)도 동기화
+sync-claude-md --gemini
+
+# GEMINI.md만 동기화
+sync-claude-md --gemini --no-claude
+
 # 특정 파일 처리
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
 ```
+
+**대상 플래그:**
+
+- `CLAUDE.md`는 기본적으로 동기화됩니다
+- `--gemini` — 각 디렉터리에 `GEMINI.md`(`@./AGENTS.md`)도 동기화
+- `--no-claude` — `CLAUDE.md`를 건너뜀 (`--gemini`와 함께 사용하면 `GEMINI.md`만 동기화)
 
 **종료 코드:**
 
@@ -124,12 +136,14 @@ fi
 
 `@path/to/file` 구문은 `CLAUDE.md` 파일 자체의 위치에서 상대적으로 해석됩니다 (CWD가 아님). 따라서 `@AGENTS.md`는 항상 올바른 파일을 가리킵니다.
 
+`--gemini`를 지정하면 Gemini의 임포트 구문 `@./AGENTS.md`를 사용하여 동일한 방식으로 `GEMINI.md`를 생성합니다.
+
 ### 멱등성과 안전성
 
-- `@AGENTS.md`가 맨 위에 없을 때만 추가
+- 참조가 맨 위에 없을 때만 추가
 - 기존 콘텐츠를 모두 보존
 - `AGENTS.md` 삭제 시 자동으로 참조 제거
-- 정리 후 빈 `CLAUDE.md` 파일 삭제
+- 정리 후 빈 지시 파일 삭제
 
 ## 라이선스
 
