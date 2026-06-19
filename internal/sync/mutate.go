@@ -73,10 +73,12 @@ func updateTarget(targetPath, ref string, check bool) (bool, error) {
 	return true, os.WriteFile(targetPath, []byte(newContent), targetFileMode)
 }
 
-// removeRef removes the AGENTS.md reference line from a target file.
-// Only removes the first occurrence at the top of the file (not inline references).
-// Also removes immediately following blank lines to prevent empty line accumulation.
-// If the file becomes empty after removal, it deletes the file.
+// removeRef removes the AGENTS.md reference from a target file. A line is a
+// reference when, trimmed of surrounding whitespace, it equals ref exactly; such
+// lines are removed wherever they appear (not only at the top), mirroring
+// updateTarget, which treats the reference as present anywhere. A single blank
+// line immediately following each removed reference is dropped too, so we do not
+// accumulate empty lines. If the file becomes empty after removal, it is deleted.
 func removeRef(targetPath, ref string, check bool) (bool, error) {
 	content, err := os.ReadFile(targetPath)
 	if os.IsNotExist(err) {
@@ -91,17 +93,16 @@ func removeRef(targetPath, ref string, check bool) (bool, error) {
 
 	lines := strings.Split(string(content), "\n")
 
-	// Find the first non-empty line
-	firstNonEmpty := -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) != "" {
-			firstNonEmpty = i
+	// The reference must appear as a standalone line somewhere; otherwise there
+	// is nothing to remove.
+	found := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == ref {
+			found = true
 			break
 		}
 	}
-
-	// If first non-empty line is not the reference, skip
-	if firstNonEmpty < 0 || strings.TrimSpace(lines[firstNonEmpty]) != ref {
+	if !found {
 		return false, nil
 	}
 
@@ -109,24 +110,17 @@ func removeRef(targetPath, ref string, check bool) (bool, error) {
 		return true, nil
 	}
 
-	// Remove the reference line and any immediately following blank lines
+	// Drop every standalone reference line, plus one blank line immediately
+	// following each, to avoid leaving accumulated empty lines behind.
 	var newLines []string
-	skipping := true // Start skipping after we pass the reference line
-	for i, line := range lines {
-		if i < firstNonEmpty {
-			newLines = append(newLines, line)
+	for i := 0; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == ref {
+			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
+				i++
+			}
 			continue
 		}
-		if i == firstNonEmpty {
-			// Skip the reference line itself
-			continue
-		}
-		if skipping && strings.TrimSpace(line) == "" {
-			// Skip blank lines immediately following the reference
-			continue
-		}
-		skipping = false
-		newLines = append(newLines, line)
+		newLines = append(newLines, lines[i])
 	}
 
 	// Check if file is now empty (only whitespace left)
