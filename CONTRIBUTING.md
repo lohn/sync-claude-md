@@ -110,12 +110,13 @@ are table-driven over each target's reference line (`@AGENTS.md` for CLAUDE.md,
 `@./AGENTS.md` for GEMINI.md), so covering a new target usually means adding a
 table entry rather than new test functions.
 
-Before pushing, make sure the build, vet, and linters are clean:
+Linting and formatting are handled by the pre-commit hooks, so you don't need to
+run `golangci-lint` by hand before committing — but it's still useful while
+iterating. A quick build and vet are worth a check before pushing:
 
 ```sh
 go build ./...
 go vet ./...
-golangci-lint run
 ```
 
 ## License

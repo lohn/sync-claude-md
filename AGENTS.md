@@ -35,16 +35,26 @@ mise install      # install pinned Go toolchain, linters, etc.
 prek install      # install git hooks
 ```
 
-Common commands (run directly — the PATH is already configured):
+mise provides the pinned toolchain. If it is activated in your shell the tools
+are on `PATH`; otherwise prefix commands with `mise exec --`.
+
+Day-to-day commands:
 
 ```sh
 go build ./...
 go test ./...
 go vet ./...
-golangci-lint run         # lint
-golangci-lint fmt         # format (gofumpt + goimports)
-prek run                  # run the hooks
 ```
+
+Linting and formatting (gofumpt, goimports, dprint, golangci-lint) run
+automatically as pre-commit hooks, so there is no need to run them by hand before
+committing. To check everything as the hooks would:
+
+```sh
+prek run          # against staged files
+```
+
+`golangci-lint run` / `golangci-lint fmt` are still handy while iterating.
 
 ## Conventions
 
