@@ -255,7 +255,7 @@ jobs:
             fi
           done
           if [ "$published" = false ] \
-            && curl -fsS -o /dev/null "https://pypi.org/pypi/sync-claude-md-pre-commit/$version/json" 2>/dev/null; then
+            && curl -fsS -o /dev/null "https://pypi.org/pypi/sync-claude-md/$version/json" 2>/dev/null; then
             published=true
           fi
 
