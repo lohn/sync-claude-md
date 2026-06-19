@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/lohn/sync-claude-md/compare/v0.1.1...v0.1.2) (2026-06-19)
+
+
+### Bug Fixes
+
+* **release:** let goreleaser own the GitHub release, not release-please ([52cb737](https://github.com/lohn/sync-claude-md/commit/52cb737a54c278eebec0038d762a011a4e5ad83e))
+* **release:** split release-please and tag-triggered release workflows ([5309d7a](https://github.com/lohn/sync-claude-md/commit/5309d7a9d6c2af9cf108e0a7fd54aa584455aae6))
+
 ## [0.1.1](https://github.com/lohn/sync-claude-md/compare/v0.1.0...v0.1.1) (2026-06-19)
 
 
