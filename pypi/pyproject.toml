@@ -9,7 +9,17 @@ description = "Sync CLAUDE.md with AGENTS.md for AI coding agents"
 readme = "README.md"
 requires-python = ">=3"
 license = "MIT"
-keywords = ["claude", "agents", "pre-commit", "ai", "coding-agents", "claude-code"]
+keywords = [
+  "claude",
+  "agents",
+  "pre-commit",
+  "ai",
+  "coding-agents",
+  "claude-code",
+  "gemini",
+  "gemini-cli",
+  "gemini-code-assist",
+]
 authors = [{ name = "lohn" }]
 
 [project.urls]

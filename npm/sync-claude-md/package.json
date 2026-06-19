@@ -23,7 +23,10 @@
     "pre-commit",
     "ai",
     "coding-agents",
-    "claude-code"
+    "claude-code",
+    "gemini",
+    "gemini-cli",
+    "gemini-code-assist"
   ],
   "license": "MIT",
   "repository": {

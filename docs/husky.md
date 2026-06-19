@@ -46,6 +46,9 @@ sync-claude-md --all
 - If `CLAUDE.md` becomes empty → deletes the file
 - If changes are made → exits with code 1 to stop commit (re-stage and retry)
 
+Pass `--gemini` to also sync a `GEMINI.md` (`@./AGENTS.md`) in each directory,
+or `--no-claude` (with `--gemini`) to sync `GEMINI.md` only.
+
 ## CI Check
 
 Use `--check` flag in CI to verify sync without making changes:

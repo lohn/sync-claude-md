@@ -60,9 +60,21 @@ sync-claude-md --all
 # ドライラン：変更を加えずに確認
 sync-claude-md --check
 
+# CLAUDE.md に加えて GEMINI.md（@./AGENTS.md）も同期
+sync-claude-md --gemini
+
+# GEMINI.md のみを同期
+sync-claude-md --gemini --no-claude
+
 # 特定のファイルを処理
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
 ```
+
+**対象フラグ：**
+
+- `CLAUDE.md` はデフォルトで同期されます
+- `--gemini` — 各ディレクトリに `GEMINI.md`（`@./AGENTS.md`）も同期
+- `--no-claude` — `CLAUDE.md` をスキップ（`--gemini` と併用すると `GEMINI.md` のみ同期）
 
 **終了コード：**
 
@@ -124,12 +136,14 @@ fi
 
 `@path/to/file` 構文は、`CLAUDE.md` ファイル自身の場所から相対的に解決されるため（CWD ではなく）、`@AGENTS.md` は常に正しいファイルを指します。
 
+`--gemini` を指定すると、Gemini のインポート構文 `@./AGENTS.md` を使って同様に `GEMINI.md` を作成します。
+
 ### 冪等性と安全性
 
-- `@AGENTS.md` が先頭にない場合のみ追加
+- ファイル内のどこにも参照がない場合のみ（先頭に）追加
 - 既存のコンテンツをすべて保持
 - `AGENTS.md` 削除時に自動で参照を除去
-- クリーンアップ後に空になった `CLAUDE.md` を削除
+- クリーンアップ後に空になった指示ファイルを削除
 
 ## ライセンス
 
