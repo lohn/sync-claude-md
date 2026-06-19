@@ -178,6 +178,26 @@ func TestRemoveRefSkipsInlineReference(t *testing.T) {
 	}
 }
 
+// TestRemoveRefMissingFileNoOps returns (false, nil) when the target file does
+// not exist, so cleanup of a deleted AGENTS.md never fails for a target that
+// was never synced in that directory.
+func TestRemoveRefMissingFileNoOps(t *testing.T) {
+	for _, rc := range refCases {
+		t.Run(rc.name, func(t *testing.T) {
+			tmpDir := setupTestDir(t)
+			chdir(t, tmpDir)
+
+			modified, err := removeRef("MISSING.md", rc.ref, false)
+			if err != nil {
+				t.Fatalf("expected no error for missing file, got: %v", err)
+			}
+			if modified {
+				t.Fatal("expected modified=false for missing file")
+			}
+		})
+	}
+}
+
 // TestRemoveRefCheckMode reports removal without writing.
 func TestRemoveRefCheckMode(t *testing.T) {
 	for _, rc := range refCases {

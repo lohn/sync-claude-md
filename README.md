@@ -140,7 +140,7 @@ With `--gemini`, a `GEMINI.md` is created the same way using Gemini's import syn
 
 ### Idempotent & Safe
 
-- Only adds the reference if not already present at the top
+- Adds the reference (at the top) only if it isn't already present anywhere in the file
 - Preserves all existing content
 - Removes references automatically when `AGENTS.md` is deleted
 - Deletes empty instruction files after cleanup

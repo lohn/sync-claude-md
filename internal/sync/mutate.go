@@ -79,6 +79,12 @@ func updateTarget(targetPath, ref string, check bool) (bool, error) {
 // If the file becomes empty after removal, it deletes the file.
 func removeRef(targetPath, ref string, check bool) (bool, error) {
 	content, err := os.ReadFile(targetPath)
+	if os.IsNotExist(err) {
+		// No target file means there is no reference to remove. This happens
+		// when an AGENTS.md is deleted in a directory that never had this
+		// target (e.g. GEMINI.md when only CLAUDE.md was synced).
+		return false, nil
+	}
 	if err != nil {
 		return false, err
 	}
