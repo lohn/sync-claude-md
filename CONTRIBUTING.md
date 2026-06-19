@@ -65,6 +65,10 @@ mise install
 prek install
 ```
 
+If mise is [activated](https://mise.jdx.dev/getting-started.html) in your shell,
+the toolchain is on your `PATH` and the commands below can be run as-is.
+Otherwise, prefix them with `mise exec --` (e.g. `mise exec -- go test ./...`).
+
 ## Before you open a pull request
 
 Most checks run automatically through the git hooks (assuming `prek install`):
