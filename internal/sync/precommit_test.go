@@ -25,7 +25,7 @@ func initGitRepo(t *testing.T) string {
 	runGit(t, "config", "user.name", "Test")
 	runGit(t, "config", "commit.gpgsign", "false")
 	// Make sure no inherited hooks path fires on commits in this temp repo.
-	runGit(t, "config", "core.hooksPath", "/dev/null")
+	runGit(t, "config", "core.hooksPath", os.DevNull)
 	return dir
 }
 
