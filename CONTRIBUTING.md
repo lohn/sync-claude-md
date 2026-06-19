@@ -67,13 +67,17 @@ prek install
 
 ## Before you open a pull request
 
-- Run the hooks:
+Most checks run automatically through the git hooks (assuming `prek install`):
 
-  ```sh
-  prek run
-  ```
+- **`pre-commit`** — formatting, `golangci-lint`, and `go mod tidy`
+- **`pre-push`** — `go test ./...`
 
-- Run the test suite (see [Testing](#testing)).
+So a normal `git commit` and `git push` already run the formatters, linters, and
+the test suite. To run the pre-commit hooks on demand:
+
+```sh
+prek run
+```
 
 `mise.lock` is generated automatically by the `mise-lock` hook whenever a mise
 configuration file changes, so commit the updated lockfile together with your
@@ -105,19 +109,13 @@ go test ./...            # run all tests
 go test ./... -run Gemini -v   # focus on a subset
 ```
 
+The suite also runs automatically on `git push` via the `pre-push` hook, but
+running it directly is faster while iterating.
+
 Add or update tests for any behavior change. Mutation tests in `mutate_test.go`
 are table-driven over each target's reference line (`@AGENTS.md` for CLAUDE.md,
 `@./AGENTS.md` for GEMINI.md), so covering a new target usually means adding a
 table entry rather than new test functions.
-
-Linting and formatting are handled by the pre-commit hooks, so you don't need to
-run `golangci-lint` by hand before committing — but it's still useful while
-iterating. A quick build and vet are worth a check before pushing:
-
-```sh
-go build ./...
-go vet ./...
-```
 
 ## License
 

@@ -46,9 +46,9 @@ go test ./...
 go vet ./...
 ```
 
-Linting and formatting (gofumpt, goimports, dprint, golangci-lint) run
-automatically as pre-commit hooks, so there is no need to run them by hand before
-committing. To check everything as the hooks would:
+The git hooks (assuming `prek install`) cover the rest automatically:
+formatting, `golangci-lint`, and `go mod tidy` on `pre-commit`, and
+`go test ./...` on `pre-push`. To run the pre-commit hooks on demand:
 
 ```sh
 prek run          # against staged files
