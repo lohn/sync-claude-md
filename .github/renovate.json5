@@ -22,14 +22,9 @@
   internalChecksFilter: "strict",
   automerge: true,
   automergeType: "pr",
-  // Refresh mise.lock for in-range updates. The mise manager does NOT support
-  // rangeStrategy "update-lockfile" (its updateLockedDependency is a stub that
-  // reports "unsupported"), so per-dependency lockfile-only updates are dropped.
-  // lockFileMaintenance is the only mechanism that refreshes mise.lock without
-  // touching mise.toml: it runs `mise lock` (via the manager's updateArtifacts),
-  // re-resolving every constraint to the latest matching version. Requires "mise"
-  // in allowedUnsafeExecutions on the runner (set via
-  // RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
+  // Periodically refresh lockfiles (incl. mise.lock) even when no dependency
+  // version constraint changes. Requires "mise" in allowedUnsafeExecutions on
+  // the runner (set via RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
   lockFileMaintenance: {
     enabled: true,
   },
@@ -63,21 +58,14 @@
         commitMessageTopic: "dev tools",
       },
     },
-    // ---- mise: keep partial version pins (e.g. prek "0.4", "pipx:commitizen" "4") out of mise.toml churn ----
-    // Each mise backend inherits its datasource's default versioning, and several
-    // of them do not treat a partial pin as a range: under `semver` (aqua tools ->
-    // github-tags) "0.4" is *invalid*, and under `pep440` (pipx tools -> pypi) "4"
-    // is a single version, not ">=4 <5". With either, rangeStrategy "replace"
-    // rewrites mise.toml to a full version ("0.4" -> "0.4.5", "4" -> "4.16.3").
-    // Standardize every mise pin on `npm` versioning, which treats "0.4"/"4" as
-    // ranges: in-range updates leave mise.toml untouched (the new version lands in
-    // mise.lock via lockFileMaintenance), while out-of-range updates bump the pin
-    // and preserve its format ("0.4" -> "0.5", "4" -> "5"). Tools whose native
-    // versioning is already range-aware (npm/node/go) keep their pins under `npm`
-    // too, so this override is safe for them.
+    // ---- mise: keep mise.lock fresh for in-range updates too ----
+    // update-lockfile = bump the locked version in mise.lock when a newer
+    // version still satisfies the mise.toml constraint (e.g. node "24"), without
+    // editing mise.toml. Out-of-range (major) updates fall back to "replace".
+    // Renovate updates mise.lock natively (no postUpgradeTasks needed).
     {
       matchManagers: ["mise"],
-      versioning: "npm",
+      rangeStrategy: "update-lockfile",
     },
   ],
   customManagers: [
