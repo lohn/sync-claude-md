@@ -78,30 +78,44 @@ prek install
 configuration file changes, so commit the updated lockfile together with your
 configuration change.
 
-## Testing
+## Project layout
 
-The routing logic in `mise-lock.sh` is covered by [bats](https://github.com/bats-core/bats-core)
-tests in [`test/`](./test). They stub `mise` on `PATH` so each test asserts which
-`mise lock` calls the script makes, without invoking a real toolchain.
+The implementation is entirely in Go; `npm/` and `pypi/` only package and ship
+the prebuilt binary.
 
-`mise-lock.sh` must run across the bash versions our users have — from bash 3.2 (the
-version shipped with macOS) to the latest. So [`test/run-bats.sh`](./test/run-bats.sh)
-runs the suite inside a `bash:<version>` Docker image, and CI runs it as a matrix over
-**bash 3.2, 4.4, and 5.3**.
-
-Run it locally (requires [Docker](https://www.docker.com); no local bats install
-needed). `mise run test` runs every supported bash version; the per-version tasks run
-just one:
-
-```sh
-mise run test          # all of the below
-mise run test:bash32   # bash 3.2
-mise run test:bash44   # bash 4.4
-mise run test:bash53   # bash 5.3
+```
+cmd/sync-claude-md/   CLI entry point (flag parsing, target selection, exit codes)
+internal/sync/        Core logic, split by responsibility
+                      (constants, targets, discover, mutate, sync) with unit tests
+npm/, pypi/           Binary-distribution wrappers — no real logic
+docs/                 Integration guides (e.g. Husky)
 ```
 
-If you touch `mise-lock.sh`, keep it free of bash 4+ only features (associative
-arrays, etc.) so the bash 3.2 job stays green.
+See [AGENTS.md](./AGENTS.md) for a more detailed map and architecture notes.
+
+## Testing
+
+The logic in `internal/sync` is covered by Go unit tests
+([`internal/sync/*_test.go`](./internal/sync)). Each test runs in an isolated
+temporary directory, so the suite never touches your working tree.
+
+```sh
+go test ./...            # run all tests
+go test ./... -run Gemini -v   # focus on a subset
+```
+
+Add or update tests for any behavior change. Mutation tests in `mutate_test.go`
+are table-driven over each target's reference line (`@AGENTS.md` for CLAUDE.md,
+`@./AGENTS.md` for GEMINI.md), so covering a new target usually means adding a
+table entry rather than new test functions.
+
+Before pushing, make sure the build, vet, and linters are clean:
+
+```sh
+go build ./...
+go vet ./...
+golangci-lint run
+```
 
 ## License
 
