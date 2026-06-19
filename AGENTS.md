@@ -31,9 +31,12 @@ This project uses [mise](https://mise.jdx.dev) for the toolchain and
 [pre-commit](https://pre-commit.com) (run via [prek](https://github.com/j178/prek)).
 
 ```sh
-mise install      # install pinned Go toolchain, linters, etc.
-prek install      # install git hooks
+mise install      # install pinned toolchain AND wire up git hooks
 ```
+
+`mise install` runs a `postinstall` hook that also installs the prek git hooks,
+so this one command is enough on a fresh clone. Run `prek install` by hand only
+if you need to re-wire the hooks.
 
 mise provides the pinned toolchain. If it is activated in your shell the tools
 are on `PATH`; otherwise prefix commands with `mise exec --`.
@@ -46,7 +49,7 @@ go test ./...
 go vet ./...
 ```
 
-The git hooks (assuming `prek install`) cover the rest automatically:
+The git hooks (installed by `mise install`) cover the rest automatically:
 formatting, `golangci-lint`, and `go mod tidy` on `pre-commit`, and
 `go test ./...` on `pre-push`. To run the pre-commit hooks on demand:
 
