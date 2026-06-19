@@ -59,11 +59,13 @@ for the hooks.
 
 ```sh
 # Install the pinned toolchain (prek, dprint, commitizen, etc.)
+# and wire up the git hooks (via mise's postinstall hook)
 mise install
-
-# Install the git hooks
-prek install
 ```
+
+`mise install` runs a `postinstall` hook that installs the prek git hooks for
+you, so a fresh clone needs only this one command. If you ever need to wire the
+hooks up by hand, run `prek install`.
 
 If mise is [activated](https://mise.jdx.dev/getting-started.html) in your shell,
 the toolchain is on your `PATH` and the commands below can be run as-is.
