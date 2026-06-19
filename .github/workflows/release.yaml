@@ -15,6 +15,7 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
+      sha: ${{ steps.rp.outputs.sha }}
     steps:
       # https://github.com/marketplace/actions/create-github-app-token
       - name: Generate GitHub App token
@@ -43,11 +44,19 @@ jobs:
       attestations: write
     steps:
       # https://github.com/marketplace/actions/checkout
+      # release-please creates the release as a draft, so the tag ref does not
+      # exist yet; check out the released commit by SHA instead.
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.release-please.outputs.sha }}
           fetch-depth: 0
+
+      - name: Recreate release tag locally for GoReleaser
+        env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        # language=bash
+        run: git tag "$TAG"
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -92,14 +101,14 @@ jobs:
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       # https://github.com/marketplace/actions/checkout
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.release-please.outputs.sha }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -146,14 +155,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       # https://github.com/marketplace/actions/checkout
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          ref: ${{ needs.release-please.outputs.sha }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -201,3 +210,28 @@ jobs:
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           packages-dir: pypi/dist
+
+  finalize-release:
+    needs: [release-please, goreleaser, npm-publish, pypi-publish]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # https://github.com/marketplace/actions/create-github-app-token
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
+
+      # Publishing the draft attaches the tag and makes the release immutable
+      # with every asset already present.
+      - name: Publish the draft release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+        # language=bash
+        run: gh release edit "$TAG" --draft=false
