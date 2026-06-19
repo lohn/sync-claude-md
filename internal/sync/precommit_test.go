@@ -305,3 +305,53 @@ func TestPreCommitGemini(t *testing.T) {
 		t.Fatalf("expected no violations after staging GEMINI.md, got %+v", res.SyncPaths)
 	}
 }
+
+// TestPreCommitWroteFalseOnNoOp verifies res.Wrote reflects whether anything was
+// actually written: a fully-synced, staged tree is a no-op.
+func TestPreCommitWroteFalseOnNoOp(t *testing.T) {
+	initGitRepo(t)
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
+	runGit(t, "add", "AGENTS.md", "CLAUDE.md")
+
+	res, err := RunPreCommit(preCommitOpts())
+	if err != nil {
+		t.Fatalf("RunPreCommit: %v", err)
+	}
+	if res.Wrote {
+		t.Fatal("expected Wrote=false when everything is already synced")
+	}
+	if len(res.SyncPaths) != 0 || len(res.DestroyPaths) != 0 {
+		t.Fatalf("expected no violations, got sync=%+v destroy=%+v", res.SyncPaths, res.DestroyPaths)
+	}
+}
+
+// TestPreCommitStageDeletesUntrackedTarget covers the --stage path when cleanup
+// removes an untracked target file: git add must not fail on the now-absent,
+// never-tracked path (the isStageable filter in gitAdd).
+func TestPreCommitStageDeletesUntrackedTarget(t *testing.T) {
+	initGitRepo(t)
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	runGit(t, "add", "AGENTS.md")
+	runGit(t, "commit", "-qm", "init")
+
+	// Stage the deletion of AGENTS.md so the sync plans a cleanup.
+	runGit(t, "rm", "-q", "AGENTS.md")
+	// An untracked CLAUDE.md whose only content is the reference: cleanup deletes
+	// it entirely, leaving a path that is neither on disk nor tracked.
+	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
+
+	opts := preCommitOpts()
+	opts.Force = true // bypass destroy protection on the untracked file
+	opts.Stage = true
+	res, err := RunPreCommit(opts)
+	if err != nil {
+		t.Fatalf("RunPreCommit: %v", err)
+	}
+	if !res.Staged {
+		t.Fatal("expected Staged=true")
+	}
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Fatal("expected CLAUDE.md to be deleted by cleanup")
+	}
+}

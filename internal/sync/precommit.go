@@ -2,6 +2,7 @@ package sync
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -65,10 +66,11 @@ func RunPreCommit(opts Options) (PreCommitResult, error) {
 		return res, nil
 	}
 
-	if _, err := applyActions(actions); err != nil {
+	wrote, err := applyActions(actions)
+	if err != nil {
 		return res, err
 	}
-	res.Wrote = true
+	res.Wrote = wrote
 
 	// Paths that need staging: everything the run wrote, plus any target whose
 	// index state is still out of sync (e.g. a file already on disk with the
@@ -238,13 +240,33 @@ func indexHasRef(path, ref string) (bool, error) {
 	return false, nil
 }
 
-// gitAdd stages the given paths.
+// gitAdd stages the given paths. Paths that are neither present on disk nor
+// tracked in the index are skipped: `git add` errors on such a pathspec, which
+// would otherwise break --stage when cleanup deleted an untracked target.
 func gitAdd(paths ...string) error {
-	if len(paths) == 0 {
+	var stageable []string
+	for _, p := range paths {
+		if isStageable(p) {
+			stageable = append(stageable, p)
+		}
+	}
+	if len(stageable) == 0 {
 		return nil
 	}
-	args := append([]string{"add", "--"}, paths...)
+	args := append([]string{"add", "--"}, stageable...)
 	return execGit(args...).Run()
+}
+
+// isStageable reports whether `git add path` would have something to stage:
+// the path exists on disk (add/modify) or is tracked in the index (a deletion
+// to stage). An untracked path that was also removed from disk has nothing to
+// stage and would make `git add` fail with a pathspec error.
+func isStageable(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	// Absent on disk: only stageable if git is tracking it (staged deletion).
+	return gitProbe("ls-files", "--error-unmatch", "--", path)
 }
 
 // gitOutput runs a git command and returns its stdout, suppressing stderr so

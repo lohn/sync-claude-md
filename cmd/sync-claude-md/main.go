@@ -67,12 +67,39 @@ Usage:
 Flags:
 `
 
+const preCommitUsageExamples = `
+Examples:
+  sync-claude-md pre-commit          Sync staged AGENTS.md and verify the index
+  sync-claude-md pre-commit --stage  Sync and stage the result (exit 0 in one pass)
+  sync-claude-md pre-commit --gemini Also verify GEMINI.md alongside CLAUDE.md
+`
+
 func usage() {
 	fmt.Fprint(os.Stderr, usageHeader)
 	flag.VisitAll(func(f *flag.Flag) {
 		fmt.Fprintf(os.Stderr, "  --%-11s %s\n", f.Name, f.Usage)
 	})
 	fmt.Fprint(os.Stderr, usageExamples)
+}
+
+// preCommitUsage prints the pre-commit subcommand help in the same style as the
+// top-level usage: a header, one aligned line per flag (collapsing shorthand
+// aliases onto their long form), then examples.
+func preCommitUsage(fs *flag.FlagSet) {
+	fmt.Fprint(os.Stderr, preCommitUsageHeader)
+	// Skip shorthand aliases so each flag is listed once; note the alias inline.
+	aliases := map[string]string{"stage": "-S", "force": "-f"}
+	fs.VisitAll(func(f *flag.Flag) {
+		if len(f.Name) == 1 {
+			return // shorthand alias, shown alongside its long form
+		}
+		name := "--" + f.Name
+		if alias, ok := aliases[f.Name]; ok {
+			name += ", " + alias
+		}
+		fmt.Fprintf(os.Stderr, "  %-16s %s\n", name, f.Usage)
+	})
+	fmt.Fprint(os.Stderr, preCommitUsageExamples)
 }
 
 func main() {
@@ -130,16 +157,14 @@ func main() {
 // code.
 func runPreCommit(args []string) int {
 	fs := flag.NewFlagSet("pre-commit", flag.ExitOnError)
-	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, preCommitUsageHeader)
-		fs.PrintDefaults()
-	}
+	fs.Usage = func() { preCommitUsage(fs) }
 	var (
 		geminiFlag = fs.Bool("gemini", false, "Also sync GEMINI.md (@./AGENTS.md) alongside CLAUDE.md")
 		noClaude   = fs.Bool("no-claude", false, "Do not sync CLAUDE.md (use with --gemini to sync GEMINI.md only)")
 		stage      = fs.Bool("stage", false, "git add the synced target files (exit 0 in one pass)")
 		force      = fs.Bool("force", false, "Overwrite target files even if they have unstaged changes")
 	)
+	fs.BoolVar(stage, "S", false, "Shorthand for --stage")
 	fs.BoolVar(force, "f", false, "Shorthand for --force")
 	_ = fs.Parse(args)
 

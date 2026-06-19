@@ -106,7 +106,7 @@ two guarantees:
 
 | Flag                       | Effect                                                  |
 | -------------------------- | ------------------------------------------------------- |
-| `--stage`                  | `git add` the synced target files; exit `0` in one pass |
+| `--stage`, `-S`            | `git add` the synced target files; exit `0` in one pass |
 | `--force`, `-f`            | Overwrite targets even if they have unstaged changes    |
 | `--gemini` / `--no-claude` | Same target selection as the top-level command          |
 

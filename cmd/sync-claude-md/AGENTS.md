@@ -13,7 +13,7 @@ CLI entry point. Parses flags, decides which targets to sync, and maps them into
   `selectTargets` helper makes this decision for both the top-level command and
   the subcommand.
 - **The `pre-commit` subcommand.** `os.Args[1] == "pre-commit"` dispatches to
-  `runPreCommit`, which has its own `flag.FlagSet` adding `--stage` (auto
+  `runPreCommit`, which has its own `flag.FlagSet` adding `--stage`/`-S` (auto
   `git add`) and `--force`/`-f` (overwrite targets with unstaged changes). It
   calls `sync.RunPreCommit` and turns the returned `PreCommitResult` into
   messages and an exit code. The package owns all git/IO; this layer only formats.
@@ -23,9 +23,11 @@ CLI entry point. Parses flags, decides which targets to sync, and maps them into
   `--force`) or an index-sync violation (reference not staged, no `--stage`);
   `0` once the reference is staged. With `--stage` it stages and returns `0` in
   one pass.
-- **Usage text.** `usageHeader` / `usageExamples` and `preCommitUsageHeader` plus
-  custom `flag.Usage`. Keep the examples aligned (descriptions start at the same
-  column) and in sync with the actual flags.
+- **Usage text.** The top-level `usage` and the subcommand's `preCommitUsage`
+  print in the same style: a header, one aligned line per flag, then examples.
+  `preCommitUsage` collapses shorthand aliases (`-S`, `-f`) onto their long form
+  via the `aliases` map. Keep the examples aligned (descriptions start at the
+  same column) and in sync with the actual flags.
 
 ## Notes
 
