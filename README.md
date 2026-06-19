@@ -68,6 +68,12 @@ sync-claude-md --gemini --no-claude
 
 # Process specific files
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
+
+# Pre-commit mode: sync staged AGENTS.md and verify against the git index
+sync-claude-md pre-commit
+
+# Pre-commit mode: also stage the synced files (succeeds in one pass)
+sync-claude-md pre-commit --stage
 ```
 
 **Target flags:**
@@ -81,9 +87,32 @@ sync-claude-md path/to/AGENTS.md another/AGENTS.md
 - `0` — everything is up to date
 - `1` — changes were made (or would be made in --check mode)
 
-> **Note on partial failures**: When processing multiple files, if an error occurs midway,
-> files processed before the error may remain modified. The tool does not roll back changes.
-> Review your working directory if an error is reported.
+### `pre-commit` subcommand
+
+`sync-claude-md pre-commit` syncs the staged `AGENTS.md` files and then verifies
+the result against the **git index** (not just the working tree). It enforces
+two guarantees:
+
+- **Sync** — the `@AGENTS.md` reference must be **staged**, so the sync actually
+  lands in the commit. If it is not staged (including a freshly created but
+  untracked `CLAUDE.md`), the commit is stopped with exit `1` and you are asked
+  to `git add` the file. Pass `--stage` to stage the synced files automatically
+  and succeed in a single pass (exit `0`).
+- **Destroy protection** — it refuses to overwrite a target file that has
+  unstaged changes, which would discard your in-progress work, and exits `1`
+  without writing. Pass `--force` (`-f`) to override. (Running under
+  pre-commit/prek this rarely triggers, since the framework stashes unstaged
+  changes first; it mainly protects manual runs.)
+
+| Flag                       | Effect                                                  |
+| -------------------------- | ------------------------------------------------------- |
+| `--stage`, `-S`            | `git add` the synced target files; exit `0` in one pass |
+| `--force`, `-f`            | Overwrite targets even if they have unstaged changes    |
+| `--gemini` / `--no-claude` | Same target selection as the top-level command          |
+
+> **Note**: `--stage` adds the whole target file, so it does not play well with
+> partial staging (`git add -p`). Omit `--stage` and stage manually if you rely
+> on partially staged commits.
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
@@ -97,6 +126,19 @@ repos:
       - id: sync-claude-md
 ```
 
+The hook runs `sync-claude-md pre-commit` and, by default, fails the commit when
+a synced file is not staged so you re-stage and commit again. To stage the
+synced files automatically instead, add `args: ['--stage']`:
+
+```yaml
+repos:
+  - repo: https://github.com/lohn/sync-claude-md
+    rev: v1.0.0
+    hooks:
+      - id: sync-claude-md
+        args: ["--stage"]
+```
+
 Or use `repo: local` with a pre-installed binary:
 
 ```yaml
@@ -105,10 +147,10 @@ repos:
     hooks:
       - id: sync-claude-md
         name: Sync CLAUDE.md
-        entry: sync-claude-md
+        entry: sync-claude-md pre-commit
         language: system
-        files: AGENTS\.md$
-        pass_filenames: true
+        always_run: true
+        pass_filenames: false
 ```
 
 ### [Husky](https://typicode.github.io/husky/)

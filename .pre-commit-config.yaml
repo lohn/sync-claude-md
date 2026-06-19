@@ -30,7 +30,7 @@ repos:
         name: Sync CLAUDE.md with AGENTS.md
         stages: [pre-commit]
         description: Keep CLAUDE.md in sync with AGENTS.md (built from the local Go source)
-        entry: go run ./cmd/sync-claude-md
+        entry: go run ./cmd/sync-claude-md pre-commit
         language: system
         always_run: true
         pass_filenames: false

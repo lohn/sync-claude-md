@@ -15,6 +15,34 @@ var refCases = []struct {
 	{name: "gemini", ref: geminiTarget.ref},
 }
 
+// applyPlanSync plans and applies a sync mutation, returning whether it modified
+// anything — a small helper mirroring the old syncFile signature for the tests.
+func applyPlanSync(t *testing.T, path, ref string) bool {
+	t.Helper()
+	a, err := planSync(path, ref)
+	if err != nil {
+		t.Fatalf("planSync failed: %v", err)
+	}
+	if err := applyAction(a); err != nil {
+		t.Fatalf("applyAction failed: %v", err)
+	}
+	return a.modifies()
+}
+
+// applyPlanCleanup plans and applies a cleanup mutation, returning whether it
+// modified anything.
+func applyPlanCleanup(t *testing.T, path, ref string) bool {
+	t.Helper()
+	a, err := planCleanup(path, ref)
+	if err != nil {
+		t.Fatalf("planCleanup failed: %v", err)
+	}
+	if err := applyAction(a); err != nil {
+		t.Fatalf("applyAction failed: %v", err)
+	}
+	return a.modifies()
+}
+
 // TestSyncFileCreates writes a fresh target file containing only the reference.
 func TestSyncFileCreates(t *testing.T) {
 	for _, rc := range refCases {
@@ -22,11 +50,7 @@ func TestSyncFileCreates(t *testing.T) {
 			tmpDir := setupTestDir(t)
 			chdir(t, tmpDir)
 
-			modified, err := syncFile("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("syncFile failed: %v", err)
-			}
-			if !modified {
+			if !applyPlanSync(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=true")
 			}
 			if got := readFile(t, "TARGET.md"); got != rc.ref+"\n" {
@@ -36,22 +60,23 @@ func TestSyncFileCreates(t *testing.T) {
 	}
 }
 
-// TestSyncFileCheckModeDoesNotCreate reports drift without writing the file.
-func TestSyncFileCheckModeDoesNotCreate(t *testing.T) {
+// TestPlanSyncCheckModeDoesNotCreate reports drift without writing the file.
+func TestPlanSyncCheckModeDoesNotCreate(t *testing.T) {
 	for _, rc := range refCases {
 		t.Run(rc.name, func(t *testing.T) {
 			tmpDir := setupTestDir(t)
 			chdir(t, tmpDir)
 
-			modified, err := syncFile("TARGET.md", rc.ref, true)
+			a, err := planSync("TARGET.md", rc.ref)
 			if err != nil {
-				t.Fatalf("syncFile failed: %v", err)
+				t.Fatalf("planSync failed: %v", err)
 			}
-			if !modified {
-				t.Fatal("expected modified=true in check mode")
+			if !a.modifies() {
+				t.Fatal("expected planned action to modify")
 			}
+			// Planning alone must not touch disk.
 			if _, err := os.Stat("TARGET.md"); !os.IsNotExist(err) {
-				t.Fatal("expected TARGET.md to NOT be created in check mode")
+				t.Fatal("expected TARGET.md to NOT be created by planning")
 			}
 		})
 	}
@@ -67,11 +92,7 @@ func TestUpdateTargetPrepends(t *testing.T) {
 
 			writeFile(t, "TARGET.md", "# Existing\n")
 
-			modified, err := updateTarget("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("updateTarget failed: %v", err)
-			}
-			if !modified {
+			if !applyPlanSync(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=true")
 			}
 			want := rc.ref + "\n\n# Existing\n"
@@ -93,11 +114,7 @@ func TestUpdateTargetIdempotent(t *testing.T) {
 			original := "# Title\n\nintro\n\n" + rc.ref + "\n"
 			writeFile(t, "TARGET.md", original)
 
-			modified, err := updateTarget("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("updateTarget failed: %v", err)
-			}
-			if modified {
+			if applyPlanSync(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=false when reference already present")
 			}
 			if got := readFile(t, "TARGET.md"); got != original {
@@ -116,11 +133,7 @@ func TestRemoveRefKeepsContent(t *testing.T) {
 
 			writeFile(t, "TARGET.md", rc.ref+"\n\n# Existing\n")
 
-			modified, err := removeRef("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("removeRef failed: %v", err)
-			}
-			if !modified {
+			if !applyPlanCleanup(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=true")
 			}
 			if got := readFile(t, "TARGET.md"); got != "# Existing\n" {
@@ -139,11 +152,7 @@ func TestRemoveRefDeletesEmptyFile(t *testing.T) {
 
 			writeFile(t, "TARGET.md", rc.ref+"\n")
 
-			modified, err := removeRef("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("removeRef failed: %v", err)
-			}
-			if !modified {
+			if !applyPlanCleanup(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=true")
 			}
 			if _, err := os.Stat("TARGET.md"); !os.IsNotExist(err) {
@@ -163,11 +172,7 @@ func TestRemoveRefRemovesMovedReference(t *testing.T) {
 
 			writeFile(t, "TARGET.md", "# Title\n\n"+rc.ref+"\n")
 
-			modified, err := removeRef("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("removeRef failed: %v", err)
-			}
-			if !modified {
+			if !applyPlanCleanup(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=true for moved reference")
 			}
 			if got := readFile(t, "TARGET.md"); got != "# Title\n" {
@@ -188,11 +193,7 @@ func TestRemoveRefIgnoresInlineSubstring(t *testing.T) {
 			original := "See " + rc.ref + " for details.\n"
 			writeFile(t, "TARGET.md", original)
 
-			modified, err := removeRef("TARGET.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("removeRef failed: %v", err)
-			}
-			if modified {
+			if applyPlanCleanup(t, "TARGET.md", rc.ref) {
 				t.Fatal("expected modified=false for substring-only reference")
 			}
 			if got := readFile(t, "TARGET.md"); got != original {
@@ -202,7 +203,7 @@ func TestRemoveRefIgnoresInlineSubstring(t *testing.T) {
 	}
 }
 
-// TestRemoveRefMissingFileNoOps returns (false, nil) when the target file does
+// TestRemoveRefMissingFileNoOps returns a no-op action when the target file does
 // not exist, so cleanup of a deleted AGENTS.md never fails for a target that
 // was never synced in that directory.
 func TestRemoveRefMissingFileNoOps(t *testing.T) {
@@ -211,19 +212,16 @@ func TestRemoveRefMissingFileNoOps(t *testing.T) {
 			tmpDir := setupTestDir(t)
 			chdir(t, tmpDir)
 
-			modified, err := removeRef("MISSING.md", rc.ref, false)
-			if err != nil {
-				t.Fatalf("expected no error for missing file, got: %v", err)
-			}
-			if modified {
+			if applyPlanCleanup(t, "MISSING.md", rc.ref) {
 				t.Fatal("expected modified=false for missing file")
 			}
 		})
 	}
 }
 
-// TestRemoveRefCheckMode reports removal without writing.
-func TestRemoveRefCheckMode(t *testing.T) {
+// TestPlanCleanupCheckModeDoesNotWrite ensures planning a removal does not touch
+// the file.
+func TestPlanCleanupCheckModeDoesNotWrite(t *testing.T) {
 	for _, rc := range refCases {
 		t.Run(rc.name, func(t *testing.T) {
 			tmpDir := setupTestDir(t)
@@ -232,15 +230,15 @@ func TestRemoveRefCheckMode(t *testing.T) {
 			original := rc.ref + "\n"
 			writeFile(t, "TARGET.md", original)
 
-			modified, err := removeRef("TARGET.md", rc.ref, true)
+			a, err := planCleanup("TARGET.md", rc.ref)
 			if err != nil {
-				t.Fatalf("removeRef failed: %v", err)
+				t.Fatalf("planCleanup failed: %v", err)
 			}
-			if !modified {
-				t.Fatal("expected modified=true in check mode")
+			if !a.modifies() {
+				t.Fatal("expected planned action to modify")
 			}
 			if got := readFile(t, "TARGET.md"); got != original {
-				t.Fatalf("file changed in check mode: %q", got)
+				t.Fatalf("file changed by planning: %q", got)
 			}
 		})
 	}
@@ -255,11 +253,7 @@ func TestRemoveRefDoesNotMatchOtherTargetRef(t *testing.T) {
 	// File leads with the Claude reference; removing the Gemini ref must no-op.
 	writeFile(t, "TARGET.md", claudeTarget.ref+"\n")
 
-	modified, err := removeRef("TARGET.md", geminiTarget.ref, false)
-	if err != nil {
-		t.Fatalf("removeRef failed: %v", err)
-	}
-	if modified {
+	if applyPlanCleanup(t, "TARGET.md", geminiTarget.ref) {
 		t.Fatal("expected modified=false: gemini ref must not match claude ref")
 	}
 	if got := readFile(t, "TARGET.md"); got != claudeTarget.ref+"\n" {

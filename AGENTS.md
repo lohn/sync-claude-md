@@ -49,6 +49,13 @@ go test ./...
 go vet ./...
 ```
 
+> **Working in a git worktree?** `go build`/`go test`/`go vet` may fail with
+> `error obtaining VCS status: exit status 128`. Go's VCS stamping does not
+> handle a worktree whose checkout lives under the parent repo's tree. Add
+> `-buildvcs=false` (e.g. `go build -buildvcs=false ./...`) when running these
+> commands from a worktree. Releases are unaffected — goreleaser stamps version
+> info via `-ldflags`, not VCS stamping.
+
 The git hooks (installed by `mise install`) cover the rest automatically:
 formatting, `golangci-lint`, and `go mod tidy` on `pre-commit`, and
 `go test ./...` on `pre-push`. To run the pre-commit hooks on demand:

@@ -1,59 +1,103 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
 
-// syncFile ensures the target file exists with the given AGENTS.md reference.
-func syncFile(targetPath, ref string, check bool) (bool, error) {
-	exists := false
-	if _, err := os.Stat(targetPath); err == nil {
-		exists = true
-	} else if !os.IsNotExist(err) {
-		return false, err
-	}
+// actionKind enumerates the mutations the planner can decide on for a single
+// target file.
+type actionKind int
 
-	if !exists {
-		if check {
-			return true, nil
-		}
-		return true, createTarget(targetPath, ref)
-	}
+const (
+	actionNone      actionKind = iota // nothing to do
+	actionCreate                      // create a new file containing only the reference
+	actionUpdate                      // prepend the reference to an existing file
+	actionRemoveRef                   // strip the reference(s), keep the rest
+	actionDelete                      // remove the file (empty after reference removal)
+)
 
-	return updateTarget(targetPath, ref, check)
+// plannedAction is a single, fully-decided mutation for a target file. The
+// planner computes these without touching disk; applyAction performs the write.
+// For create/update/removeRef, content holds the exact bytes to write.
+type plannedAction struct {
+	path    string
+	ref     string
+	kind    actionKind
+	content []byte
 }
 
-// createTarget creates a new target file containing only the AGENTS.md reference.
-func createTarget(targetPath, ref string) error {
-	return os.WriteFile(targetPath, []byte(ref+"\n"), targetFileMode)
-}
+// modifies reports whether the action changes anything on disk.
+func (a plannedAction) modifies() bool { return a.kind != actionNone }
 
-// updateTarget ensures the target file references AGENTS.md. The reference may
-// live anywhere in the file; only its absence triggers a write, in which case
-// it is inserted at the top.
-func updateTarget(targetPath, ref string, check bool) (bool, error) {
+// planSync decides what (if anything) must change so that targetPath references
+// ref. It performs no writes.
+func planSync(targetPath, ref string) (plannedAction, error) {
 	content, err := os.ReadFile(targetPath)
+	if os.IsNotExist(err) {
+		return plannedAction{path: targetPath, ref: ref, kind: actionCreate, content: []byte(ref + "\n")}, nil
+	}
 	if err != nil {
-		return false, err
+		return plannedAction{}, err
 	}
 
-	lines := strings.Split(string(content), "\n")
+	newContent, changed := withRefPrepended(string(content), ref)
+	if !changed {
+		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
+	}
+	return plannedAction{path: targetPath, ref: ref, kind: actionUpdate, content: []byte(newContent)}, nil
+}
 
-	// Already references AGENTS.md somewhere? Then nothing to do.
+// planCleanup decides what (if anything) must change to drop ref from
+// targetPath. It performs no writes. A missing file is a no-op so cleanup of a
+// deleted AGENTS.md never fails for a target that was never synced.
+func planCleanup(targetPath, ref string) (plannedAction, error) {
+	content, err := os.ReadFile(targetPath)
+	if os.IsNotExist(err) {
+		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
+	}
+	if err != nil {
+		return plannedAction{}, err
+	}
+
+	newContent, removed := withRefRemoved(string(content), ref)
+	if !removed {
+		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
+	}
+	if strings.TrimSpace(newContent) == "" {
+		return plannedAction{path: targetPath, ref: ref, kind: actionDelete}, nil
+	}
+	return plannedAction{path: targetPath, ref: ref, kind: actionRemoveRef, content: []byte(newContent)}, nil
+}
+
+// applyAction writes a single planned action to disk.
+func applyAction(a plannedAction) error {
+	switch a.kind {
+	case actionNone:
+		return nil
+	case actionCreate, actionUpdate, actionRemoveRef:
+		return os.WriteFile(a.path, a.content, targetFileMode)
+	case actionDelete:
+		return os.Remove(a.path)
+	}
+	return fmt.Errorf("unknown action kind %d for %s", a.kind, a.path)
+}
+
+// withRefPrepended returns content with ref inserted at the top, separated from
+// any existing content by a single blank line. If ref already appears anywhere
+// in the file, content is returned unchanged (changed=false) so a reference the
+// user moved lower is left untouched. Leading blank lines are dropped so empty
+// lines do not accumulate.
+func withRefPrepended(content, ref string) (string, bool) {
+	lines := strings.Split(content, "\n")
+
 	for _, line := range lines {
 		if strings.TrimSpace(line) == ref {
-			return false, nil
+			return content, false
 		}
 	}
 
-	if check {
-		return true, nil
-	}
-
-	// Insert the reference at the top, dropping any leading blank lines so we do
-	// not accumulate empty lines, and separating it from existing content with
-	// a single blank line.
 	firstNonEmpty := len(lines)
 	for i, line := range lines {
 		if strings.TrimSpace(line) != "" {
@@ -69,29 +113,18 @@ func updateTarget(targetPath, ref string, check bool) (bool, error) {
 	}
 	newLines = append(newLines, rest...)
 
-	newContent := strings.Join(newLines, "\n")
-	return true, os.WriteFile(targetPath, []byte(newContent), targetFileMode)
+	return strings.Join(newLines, "\n"), true
 }
 
-// removeRef removes the AGENTS.md reference from a target file. A line is a
-// reference when, trimmed of surrounding whitespace, it equals ref exactly; such
-// lines are removed wherever they appear (not only at the top), mirroring
-// updateTarget, which treats the reference as present anywhere. A single blank
-// line immediately following each removed reference is dropped too, so we do not
-// accumulate empty lines. If the file becomes empty after removal, it is deleted.
-func removeRef(targetPath, ref string, check bool) (bool, error) {
-	content, err := os.ReadFile(targetPath)
-	if os.IsNotExist(err) {
-		// No target file means there is no reference to remove. This happens
-		// when an AGENTS.md is deleted in a directory that never had this
-		// target (e.g. GEMINI.md when only CLAUDE.md was synced).
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	lines := strings.Split(string(content), "\n")
+// withRefRemoved strips every standalone occurrence of ref — a line that, trimmed
+// of surrounding whitespace, equals ref exactly — wherever it appears (not only
+// at the top), mirroring withRefPrepended's "present anywhere" rule. One blank
+// line immediately following each removed reference is dropped too, so empty
+// lines do not accumulate. Lines that merely contain ref as a substring (e.g.
+// "See @AGENTS.md for details.") are left untouched. It returns (content, false)
+// when no standalone reference line is present.
+func withRefRemoved(content, ref string) (string, bool) {
+	lines := strings.Split(content, "\n")
 
 	// The reference must appear as a standalone line somewhere; otherwise there
 	// is nothing to remove.
@@ -103,11 +136,7 @@ func removeRef(targetPath, ref string, check bool) (bool, error) {
 		}
 	}
 	if !found {
-		return false, nil
-	}
-
-	if check {
-		return true, nil
+		return content, false
 	}
 
 	// Drop every standalone reference line, plus one blank line immediately
@@ -123,19 +152,5 @@ func removeRef(targetPath, ref string, check bool) (bool, error) {
 		newLines = append(newLines, lines[i])
 	}
 
-	// Check if file is now empty (only whitespace left)
-	hasContent := false
-	for _, line := range newLines {
-		if strings.TrimSpace(line) != "" {
-			hasContent = true
-			break
-		}
-	}
-
-	if !hasContent {
-		return true, os.Remove(targetPath)
-	}
-
-	newContent := strings.Join(newLines, "\n")
-	return true, os.WriteFile(targetPath, []byte(newContent), targetFileMode)
+	return strings.Join(newLines, "\n"), true
 }

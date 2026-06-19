@@ -68,6 +68,12 @@ sync-claude-md --gemini --no-claude
 
 # 특정 파일 처리
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
+
+# pre-commit 모드: 스테이징된 AGENTS.md를 동기화하고 git 인덱스와 대조
+sync-claude-md pre-commit
+
+# pre-commit 모드: 동기화된 파일을 자동으로 스테이징 (한 번에 성공)
+sync-claude-md pre-commit --stage
 ```
 
 **대상 플래그:**
@@ -81,9 +87,31 @@ sync-claude-md path/to/AGENTS.md another/AGENTS.md
 - `0` — 모든 것이 최신 상태
 - `1` — 변경이 수행됨 (또는 `--check` 모드에서 변경 필요)
 
-> **부분 실패에 대해**: 여러 파일 처리 중 오류가 발생하면,
-> 오류 발생 전에 처리된 파일은 변경된 상태로 남을 수 있습니다.
-> 이 도구는 변경 사항을 롤백하지 않습니다. 오류 보고 시 작업 디렉터리를 확인하세요.
+### `pre-commit` 하위 명령
+
+`sync-claude-md pre-commit`은 스테이징된 `AGENTS.md`를 동기화한 다음, 결과를
+작업 트리가 아닌 **git 인덱스**와 대조합니다. 두 가지를 보장합니다:
+
+- **동기화** — `@AGENTS.md` 참조가 **스테이징되어 있어야** 합니다. 그래야 동기화가
+  실제로 커밋에 포함됩니다. 스테이징되지 않은 경우(새로 생성되었지만 추적되지 않은
+  `CLAUDE.md` 포함) 커밋이 종료 코드 `1`로 중단되고 `git add`를 요청합니다.
+  `--stage`를 전달하면 동기화된 파일을 자동으로 스테이징하여 한 번에 성공합니다
+  (종료 코드 `0`).
+- **손상 방지** — 스테이징되지 않은 변경이 있는 대상 파일을 덮어써 작업 중인 변경을
+  잃게 만드는 것을 거부하고, 아무것도 쓰지 않은 채 `1`로 종료합니다. `--force`
+  (`-f`)로 재정의할 수 있습니다. (pre-commit/prek로 실행하면 프레임워크가
+  스테이징되지 않은 변경을 먼저 stash하므로 거의 발생하지 않으며, 주로 수동 실행을
+  보호합니다.)
+
+| 플래그                     | 효과                                                  |
+| -------------------------- | ----------------------------------------------------- |
+| `--stage`, `-S`            | 동기화된 대상 파일을 `git add`. 한 번에 종료 코드 `0` |
+| `--force`, `-f`            | 스테이징되지 않은 변경이 있어도 대상을 덮어씀         |
+| `--gemini` / `--no-claude` | 최상위 명령과 동일한 대상 선택                        |
+
+> **참고**: `--stage`는 대상 파일 전체를 add하므로 부분 스테이징(`git add -p`)과는
+> 잘 맞지 않습니다. 부분 스테이징 커밋에 의존한다면 `--stage`를 생략하고 수동으로
+> 스테이징하세요.
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
@@ -97,6 +125,19 @@ repos:
       - id: sync-claude-md
 ```
 
+이 훅은 `sync-claude-md pre-commit`을 실행하며, 기본적으로 동기화된 파일이
+스테이징되지 않았을 때 커밋을 실패시켜 다시 스테이징하고 커밋하도록 합니다.
+동기화된 파일을 자동으로 스테이징하려면 `args: ['--stage']`를 추가하세요:
+
+```yaml
+repos:
+  - repo: https://github.com/lohn/sync-claude-md
+    rev: v1.0.0
+    hooks:
+      - id: sync-claude-md
+        args: ["--stage"]
+```
+
 또는 사전 설치된 바이너리를 `repo: local`로 사용:
 
 ```yaml
@@ -105,10 +146,10 @@ repos:
     hooks:
       - id: sync-claude-md
         name: Sync CLAUDE.md
-        entry: sync-claude-md
+        entry: sync-claude-md pre-commit
         language: system
-        files: AGENTS\.md$
-        pass_filenames: true
+        always_run: true
+        pass_filenames: false
 ```
 
 ### [Husky](https://typicode.github.io/husky/)

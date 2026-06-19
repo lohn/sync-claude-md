@@ -22,6 +22,17 @@ Only process AGENTS.md files that are staged for commit:
 
 ```bash
 # .husky/pre-commit
+sync-claude-md pre-commit
+```
+
+The `pre-commit` subcommand processes the staged `AGENTS.md` files itself and
+verifies the result against the git index, so the commit is stopped unless the
+synced `CLAUDE.md` is staged. Add `--stage` to stage the synced files
+automatically instead of failing. (The older manual form below still works but
+only checks the working tree, not the index.)
+
+```bash
+# .husky/pre-commit (manual, working-tree only)
 STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
 
 if [ -n "$STAGED_AGENTS" ]; then
@@ -45,6 +56,9 @@ sync-claude-md --all
 - If `AGENTS.md` is deleted → removes `@AGENTS.md` reference from `CLAUDE.md`
 - If `CLAUDE.md` becomes empty → deletes the file
 - If changes are made → exits with code 1 to stop commit (re-stage and retry)
+- With the `pre-commit` subcommand, it also exits 1 when a synced file is not
+  staged in the git index (so the sync is guaranteed to land in the commit);
+  use `--stage` to stage automatically
 
 Pass `--gemini` to also sync a `GEMINI.md` (`@./AGENTS.md`) in each directory,
 or `--no-claude` (with `--gemini`) to sync `GEMINI.md` only.

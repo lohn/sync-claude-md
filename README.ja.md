@@ -68,6 +68,12 @@ sync-claude-md --gemini --no-claude
 
 # 特定のファイルを処理
 sync-claude-md path/to/AGENTS.md another/AGENTS.md
+
+# pre-commit モード: ステージ済み AGENTS.md を同期し、git インデックスと照合
+sync-claude-md pre-commit
+
+# pre-commit モード: 同期したファイルを自動でステージ（1 パスで成功）
+sync-claude-md pre-commit --stage
 ```
 
 **対象フラグ：**
@@ -81,9 +87,30 @@ sync-claude-md path/to/AGENTS.md another/AGENTS.md
 - `0` — すべて最新
 - `1` — 変更が行われた（または `--check` モードで変更が必要）
 
-> **部分失敗について**: 複数ファイルの処理中にエラーが発生した場合、
-> エラーが発生する前に処理されたファイルは変更されたまま残ることがあります。
-> 本ツールは変更をロールバックしません。エラー報告時は作業ディレクトリを確認してください。
+### `pre-commit` サブコマンド
+
+`sync-claude-md pre-commit` はステージ済みの `AGENTS.md` を同期したあと、結果を
+作業ツリーではなく **git インデックス** と照合します。2 つの保証があります：
+
+- **同期** — `@AGENTS.md` 参照が**ステージされている**必要があります。これにより
+  同期が実際にコミットに含まれます。ステージされていない場合（新規作成されたが
+  未追跡の `CLAUDE.md` を含む）、コミットは終了コード `1` で停止し、`git add` を
+  促します。`--stage` を付けると同期したファイルを自動でステージし、1 パスで成功
+  します（終了コード `0`）。
+- **破壊防止** — 未ステージの変更がある対象ファイルを上書きして作業中の変更を
+  失わせることを拒否し、書き込みをせずに `1` で終了します。`--force`（`-f`）で
+  上書きできます。（pre-commit/prek 経由ではフレームワークが未ステージ変更を
+  stash するためほとんど発火せず、主に手動実行を保護します。）
+
+| フラグ                     | 効果                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| `--stage`, `-S`            | 同期した対象ファイルを `git add`。1 パスで終了コード `0` |
+| `--force`, `-f`            | 未ステージの変更があっても対象を上書き                   |
+| `--gemini` / `--no-claude` | トップレベルコマンドと同じ対象選択                       |
+
+> **注意**: `--stage` は対象ファイル全体を add するため、部分ステージ
+> （`git add -p`）とは相性がよくありません。部分ステージのコミットに依存する場合は
+> `--stage` を付けず手動でステージしてください。
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
@@ -97,6 +124,19 @@ repos:
       - id: sync-claude-md
 ```
 
+このフックは `sync-claude-md pre-commit` を実行し、デフォルトでは同期したファイルが
+ステージされていないときにコミットを失敗させ、再ステージとコミットを促します。
+同期したファイルを自動でステージするには `args: ['--stage']` を追加します：
+
+```yaml
+repos:
+  - repo: https://github.com/lohn/sync-claude-md
+    rev: v1.0.0
+    hooks:
+      - id: sync-claude-md
+        args: ["--stage"]
+```
+
 または、事前にインストールしたバイナリを `repo: local` で使用：
 
 ```yaml
@@ -105,10 +145,10 @@ repos:
     hooks:
       - id: sync-claude-md
         name: Sync CLAUDE.md
-        entry: sync-claude-md
+        entry: sync-claude-md pre-commit
         language: system
-        files: AGENTS\.md$
-        pass_filenames: true
+        always_run: true
+        pass_filenames: false
 ```
 
 ### [Husky](https://typicode.github.io/husky/)
