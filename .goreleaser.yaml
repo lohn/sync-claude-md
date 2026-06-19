@@ -63,8 +63,9 @@ changelog:
       - "Merge pull request"
       - "Merge branch"
 
-# release-please owns the GitHub Release/tag; goreleaser only builds artifacts.
-# The release workflow runs `release --skip=publish` and uploads binaries to
-# the release-please-created release via the GitHub CLI.
+# release-please manages versioning, the release PR and the tag; goreleaser
+# owns the GitHub Release. It is created as a draft so every artifact is
+# attached before the finalize step publishes it (GitHub releases are immutable
+# once published, tags are not).
 release:
-  disable: true
+  draft: true

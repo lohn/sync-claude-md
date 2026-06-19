@@ -13,9 +13,8 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      release_created: ${{ steps.rp.outputs.release_created }}
-      tag_name: ${{ steps.rp.outputs.tag_name }}
-      sha: ${{ steps.rp.outputs.sha }}
+      release_needed: ${{ steps.check.outputs.release_needed }}
+      tag: ${{ steps.check.outputs.tag }}
     steps:
       # https://github.com/marketplace/actions/create-github-app-token
       - name: Generate GitHub App token
@@ -25,18 +24,79 @@ jobs:
           client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
 
+      # https://github.com/marketplace/actions/checkout
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      # A release is needed when the manifest version has no published release
+      # yet: either the release PR was just merged, or a previous attempt only
+      # produced a (still unpublished) draft.
+      - name: Determine whether a release is needed
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r '.["."]' .release-please-manifest.json)
+          tag="v$version"
+          if [ "$(gh release view "$tag" --json isDraft --jq '.isDraft' 2>/dev/null)" = "false" ]; then
+            needed=false
+          else
+            needed=true
+          fi
+          {
+            echo "release_needed=$needed"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+      # Only the GitHub release is immutable, not the tag, so create the tag up
+      # front. goreleaser then builds the draft release against it, and having
+      # the tag present keeps release-please from re-proposing the release.
+      - name: Create the release tag
+        if: ${{ steps.check.outputs.release_needed == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.check.outputs.tag }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          if ! gh api "repos/$GH_REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA"
+          fi
+
+      # release-please only manages versioning and the release PR; goreleaser
+      # creates the GitHub release. Labels are skipped so a merged-but-not-yet-
+      # released PR can never block opening the next release PR.
       # https://github.com/marketplace/actions/release-please-action
       - name: Run release-please
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-release: true
+          skip-labeling: true
+
+      - name: Enable auto-merge on the release pull request
+        if: ${{ steps.rp.outputs.prs_created == 'true' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PRS: ${{ steps.rp.outputs.prs }}
+        # language=bash
+        run: |
+          set -euo pipefail
+          echo "$PRS" | jq -r '.[].number' | while read -r pr; do
+            gh pr merge "$pr" --auto --squash
+          done
 
   goreleaser:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_needed == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -44,19 +104,11 @@ jobs:
       attestations: write
     steps:
       # https://github.com/marketplace/actions/checkout
-      # release-please creates the release as a draft, so the tag ref does not
-      # exist yet; check out the released commit by SHA instead.
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ needs.release-please.outputs.tag }}
           fetch-depth: 0
-
-      - name: Recreate release tag locally for GoReleaser
-        env:
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-        # language=bash
-        run: git tag "$TAG"
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -71,24 +123,12 @@ jobs:
           client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
 
-      - name: Build artifacts with GoReleaser (no publish)
+      # goreleaser creates the GitHub release as a draft (see .goreleaser.yaml)
+      # and uploads every artifact, so all assets are present before publish.
+      - name: Build and create the draft release with GoReleaser
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: goreleaser release --clean --skip=publish
-
-      - name: Upload raw binaries and checksums to the release
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
-        # language=bash
-        run: |
-          set -euo pipefail
-          mkdir -p upload
-          jq -r '.[] | select(.type=="Binary" and .extra.ID=="raw") | "\(.path)\t\(.name)"' dist/artifacts.json |
-            while IFS=$'\t' read -r path name; do
-              cp "$path" "upload/$name"
-            done
-          gh release upload "$TAG" upload/* dist/checksums.txt --clobber
+        run: goreleaser release --clean
 
       # https://github.com/marketplace/actions/attest-build-provenance
       - name: Attest build provenance for all artifacts
@@ -98,8 +138,9 @@ jobs:
 
   npm-publish:
     needs: [release-please, goreleaser]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_needed == 'true' }}
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write
       id-token: write
@@ -108,7 +149,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ needs.release-please.outputs.tag }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -118,7 +159,7 @@ jobs:
       - name: Download raw binaries from the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
+          TAG: ${{ needs.release-please.outputs.tag }}
         # language=bash
         run: |
           gh release download "$TAG" --dir dist-bin \
@@ -145,15 +186,15 @@ jobs:
         run: |
           set -euo pipefail
           for d in darwin-arm64 darwin-x64 linux-arm64 linux-x64 win32-arm64 win32-x64; do
-            npm publish --access public --provenance "npm/@sync-claude-md/cli-$d"
+            npm publish --access public "npm/@sync-claude-md/cli-$d"
           done
-          npm publish --access public --provenance npm/sync-claude-md
+          npm publish --access public npm/sync-claude-md
 
   pypi-publish:
     needs: [release-please, goreleaser]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_needed == 'true' }}
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: release
     permissions:
       contents: write
       id-token: write
@@ -162,7 +203,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: ${{ needs.release-please.outputs.sha }}
+          ref: ${{ needs.release-please.outputs.tag }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
@@ -172,7 +213,7 @@ jobs:
       - name: Download raw binaries from the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
+          TAG: ${{ needs.release-please.outputs.tag }}
         # language=bash
         run: |
           gh release download "$TAG" --dir dist-bin \
@@ -213,7 +254,7 @@ jobs:
 
   finalize-release:
     needs: [release-please, goreleaser, npm-publish, pypi-publish]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_needed == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -226,12 +267,12 @@ jobs:
           client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
           private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}
 
-      # Publishing the draft attaches the tag and makes the release immutable
-      # with every asset already present.
+      # All artifacts are attached to the draft by now; publishing locks the
+      # release (immutable) with everything in place.
       - name: Publish the draft release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.release-please.outputs.tag_name }}
+          TAG: ${{ needs.release-please.outputs.tag }}
         # language=bash
         run: gh release edit "$TAG" --draft=false
