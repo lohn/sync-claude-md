@@ -52,11 +52,13 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
-# Release notes come from CHANGELOG.md (maintained by release-please) and are
-# passed to goreleaser via --release-notes, so its own changelog generation is
-# disabled to keep CHANGELOG.md the single source of truth.
+# The release body is supplied from CHANGELOG.md via goreleaser's --release-notes
+# flag (see the workflow). The changelog pipe must stay enabled: when disabled,
+# goreleaser skips it entirely and --release-notes is ignored, leaving an empty
+# body. Generation is filtered to nothing here since --release-notes overrides it.
 changelog:
-  disable: true
+  filters:
+    exclude: [".*"]
 
 # release-please manages versioning, the release PR and the tag; goreleaser
 # owns the GitHub Release. It is created as a draft so every artifact is

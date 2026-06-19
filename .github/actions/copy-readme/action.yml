@@ -1,0 +1,27 @@
+name: Copy README for a package
+description: >-
+  Copy README.md to a destination, rewriting relative Markdown links to absolute
+  GitHub blob URLs pinned to a tag so they resolve on npm and PyPI.
+
+inputs:
+  dest:
+    description: Destination path for the rewritten README.
+    required: true
+  tag:
+    description: Tag the links should point at (e.g. v1.0.0).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Rewrite relative links and copy
+      shell: bash
+      env:
+        DEST: ${{ inputs.dest }}
+        TAG: ${{ inputs.tag }}
+        REPO: ${{ github.repository }}
+      # language=bash
+      run: |
+        set -euo pipefail
+        perl -pe 's{\]\((?!https?://|#|mailto:)([^)]+)\)}{](https://github.com/$ENV{REPO}/blob/$ENV{TAG}/$1)}g' \
+          README.md > "$DEST"

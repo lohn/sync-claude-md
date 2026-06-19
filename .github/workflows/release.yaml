@@ -103,7 +103,10 @@ jobs:
           install -m755 dist-bin/sync-claude-md_windows_amd64.exe npm/@sync-claude-md/cli-win32-x64/sync-claude-md.exe
 
       - name: Copy README into the meta package
-        run: cp README.md npm/sync-claude-md/README.md
+        uses: ./.github/actions/copy-readme
+        with:
+          dest: npm/sync-claude-md/README.md
+          tag: ${{ github.ref_name }}
 
       - name: Publish platform packages then the meta package
         # language=bash
@@ -157,7 +160,10 @@ jobs:
             --pattern 'sync-claude-md_windows_*'
 
       - name: Copy README into pypi
-        run: cp README.md pypi/README.md
+        uses: ./.github/actions/copy-readme
+        with:
+          dest: pypi/README.md
+          tag: ${{ github.ref_name }}
 
       - name: Build platform wheels
         working-directory: pypi
