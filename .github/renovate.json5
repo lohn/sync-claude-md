@@ -22,6 +22,7 @@
   internalChecksFilter: "strict",
   automerge: true,
   automergeType: "pr",
+  automergeStrategy: "squash",
   // Periodically refresh lockfiles (incl. mise.lock) even when no dependency
   // version constraint changes. Requires "mise" in allowedUnsafeExecutions on
   // the runner (set via RENOVATE_ALLOWED_UNSAFE_EXECUTIONS in renovate.yaml).
