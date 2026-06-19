@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -80,7 +81,7 @@ func applyAction(a plannedAction) error {
 	case actionDelete:
 		return os.Remove(a.path)
 	}
-	return nil
+	return fmt.Errorf("unknown action kind %d for %s", a.kind, a.path)
 }
 
 // withRefPrepended returns content with ref inserted at the top, separated from

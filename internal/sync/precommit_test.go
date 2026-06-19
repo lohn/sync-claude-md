@@ -273,7 +273,7 @@ func TestPreCommitIgnoredTargetIsNoOp(t *testing.T) {
 	if len(res.SyncPaths) != 0 || len(res.DestroyPaths) != 0 {
 		t.Fatalf("expected no violations for ignored target, got sync=%+v destroy=%+v", res.SyncPaths, res.DestroyPaths)
 	}
-	if _, err := exec.Command("test", "-f", "CLAUDE.md").Output(); err == nil {
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
 		t.Fatal("expected CLAUDE.md to NOT be created when ignored")
 	}
 }

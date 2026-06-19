@@ -38,10 +38,12 @@ precommit.go    pre-commit subcommand: git index checks, RunPreCommit, CheckPreC
 - **`planCleanup` no-ops on a missing file.** `planActions` calls it for every
   deleted AGENTS.md across each selected target, so a directory that never had a
   given target file must not produce an action.
-- **Plan first, then apply — no partial writes.** `planActions` decides the full
-  set of `plannedAction`s without touching disk; `applyActions` writes them. This
-  keeps `Run` and the `pre-commit` path from leaving half-written state, and lets
-  `pre-commit` verify before any write happens.
+- **Plan first, then apply.** `planActions` decides the full set of
+  `plannedAction`s without touching disk; `applyActions` writes them. This lets
+  `pre-commit` verify before any write happens and means no file is written
+  because of a _decision_ that later proves wrong. It is not transactional,
+  though: if a later `applyActions` write fails mid-way, earlier writes remain on
+  disk.
 - **`pre-commit` verifies against the git index, not the worktree.** `precommit.go`
   enforces two independent axes: **destroy protection** (`axisDestroy`, refuse to
   overwrite a target with unstaged changes — cleared by `--force`) and **index

@@ -227,7 +227,8 @@ func hasUnstagedChanges(path string) (bool, error) {
 // indexHasRef reports whether the staged (index) content of path contains ref
 // on its own line. A path absent from the index returns false.
 func indexHasRef(path, ref string) (bool, error) {
-	out, err := gitOutput("cat-file", "blob", ":"+path)
+	// Git's index object spec (":path") uses forward slashes regardless of OS.
+	out, err := gitOutput("cat-file", "blob", ":"+filepath.ToSlash(path))
 	if err != nil {
 		// Not in the index (untracked or staged deletion): no reference there.
 		return false, nil
