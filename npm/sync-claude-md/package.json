@@ -1,18 +1,18 @@
 {
   "name": "sync-claude-md",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sync CLAUDE.md with AGENTS.md for AI coding agents",
   "main": "bin/sync-claude-md",
   "bin": {
     "sync-claude-md": "bin/sync-claude-md"
   },
   "optionalDependencies": {
-    "@sync-claude-md/cli-darwin-arm64": "0.1.0",
-    "@sync-claude-md/cli-darwin-x64": "0.1.0",
-    "@sync-claude-md/cli-linux-arm64": "0.1.0",
-    "@sync-claude-md/cli-linux-x64": "0.1.0",
-    "@sync-claude-md/cli-win32-arm64": "0.1.0",
-    "@sync-claude-md/cli-win32-x64": "0.1.0"
+    "@sync-claude-md/cli-darwin-arm64": "0.1.1",
+    "@sync-claude-md/cli-darwin-x64": "0.1.1",
+    "@sync-claude-md/cli-linux-arm64": "0.1.1",
+    "@sync-claude-md/cli-linux-x64": "0.1.1",
+    "@sync-claude-md/cli-win32-arm64": "0.1.1",
+    "@sync-claude-md/cli-win32-x64": "0.1.1"
   },
   "files": [
     "bin/sync-claude-md"

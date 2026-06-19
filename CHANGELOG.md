@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/lohn/sync-claude-md/compare/v0.1.0...v0.1.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **release:** drop component/package-name so grouped release PR matches ([469aeb1](https://github.com/lohn/sync-claude-md/commit/469aeb1332bed687549afdf2f0df0a423178dea6))
+* **release:** publish via draft release to satisfy immutable releases ([46be0b6](https://github.com/lohn/sync-claude-md/commit/46be0b6f6769913f8c2402b86129fa4e80b335cc))
+
 ## 0.1.0 (2026-06-18)
 
 
