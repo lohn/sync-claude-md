@@ -39,8 +39,8 @@ Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build
 Examples:
 
 ```
-feat: support .config/mise/conf.d/*.toml
-fix(mise-lock): skip top-level *.local.toml overrides
+feat: add opt-in GEMINI.md sync via --gemini
+fix: no-op removeRef when the target file is missing
 docs: document the testing workflow
 ci: pin actions to commit SHAs
 ```
