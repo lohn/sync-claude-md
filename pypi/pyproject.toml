@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sync-claude-md"
-version = "0.1.1"
+version = "0.1.2"
 description = "Sync CLAUDE.md with AGENTS.md for AI coding agents"
 readme = "README.md"
 requires-python = ">=3"
