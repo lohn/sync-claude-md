@@ -26,6 +26,10 @@ type plannedAction struct {
 	ref     string
 	kind    actionKind
 	content []byte
+	// wantRef is the reference's desired presence once committed. kind alone
+	// cannot tell a satisfied sync from a satisfied cleanup (both are
+	// actionNone), but the git-index check needs to know which is which.
+	wantRef bool
 }
 
 // modifies reports whether the action changes anything on disk.
@@ -36,7 +40,7 @@ func (a plannedAction) modifies() bool { return a.kind != actionNone }
 func planSync(targetPath, ref string) (plannedAction, error) {
 	content, err := os.ReadFile(targetPath)
 	if os.IsNotExist(err) {
-		return plannedAction{path: targetPath, ref: ref, kind: actionCreate, content: []byte(ref + "\n")}, nil
+		return plannedAction{path: targetPath, ref: ref, kind: actionCreate, content: []byte(ref + "\n"), wantRef: true}, nil
 	}
 	if err != nil {
 		return plannedAction{}, err
@@ -44,14 +48,16 @@ func planSync(targetPath, ref string) (plannedAction, error) {
 
 	newContent, changed := withRefPrepended(string(content), ref)
 	if !changed {
-		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
+		return plannedAction{path: targetPath, ref: ref, kind: actionNone, wantRef: true}, nil
 	}
-	return plannedAction{path: targetPath, ref: ref, kind: actionUpdate, content: []byte(newContent)}, nil
+	return plannedAction{path: targetPath, ref: ref, kind: actionUpdate, content: []byte(newContent), wantRef: true}, nil
 }
 
 // planCleanup decides what (if anything) must change to drop ref from
 // targetPath. It performs no writes. A missing file is a no-op so cleanup of a
-// deleted AGENTS.md never fails for a target that was never synced.
+// deleted AGENTS.md never fails for a target that was never synced. wantRef is
+// left at its zero value (false) on every returned action: cleanup always
+// wants the reference gone, whether or not anything actually needs removing.
 func planCleanup(targetPath, ref string) (plannedAction, error) {
 	content, err := os.ReadFile(targetPath)
 	if os.IsNotExist(err) {

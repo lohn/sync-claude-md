@@ -1,41 +1,44 @@
 # AGENTS.md — cmd/sync-claude-md
 
-CLI entry point. `main` dispatches on `os.Args[1]` to one of three subcommands —
-`sync`, `check`, `pre-commit` — each with its own `flag.FlagSet`, mapping flags
-into `sync.Options` before calling `sync.Run` (`sync.RunPreCommit` for
-`pre-commit`). All core logic lives in
+CLI entry point. `main` dispatches on `os.Args[1]` to one of two subcommands —
+`sync`, `check` — each with its own `flag.FlagSet`, mapping flags into
+`sync.Options` before calling `sync.Run`. All core logic lives in
 [`internal/sync`](../../internal/sync/AGENTS.md); keep this package thin. No
 subcommand (or `-h`/`--help`/`help`) prints `helpText`; an unrecognized first
 argument prints an error plus `helpText` and exits 1.
 
 ## Responsibilities
 
-- **Subcommand dispatch and flag parsing.** `runSync`, `runCheck`, and
-  `runPreCommit` each build their own `flag.FlagSet` and return the process exit
-  code; `main` calls `os.Exit` on the result. `bindCommonFlags` registers the
-  `--all`/`--gemini`/`--no-claude` flags shared by `sync` and `check`;
-  `pre-commit` adds its own (it has no `--all`, since it always operates on
-  staged `AGENTS.md`).
+- **Subcommand dispatch and flag parsing.** `runSync` and `runCheck` each
+  build their own `flag.FlagSet` and return the process exit code; `main`
+  calls `os.Exit` on the result. `bindCommonFlags` registers the
+  `--all`/`--gemini`/`--no-claude`/`--no-ignore` flags shared by both;
+  `sync` additionally has `--force`/`-f`, `--stage`/`-S`, and
+  `--fail-on-change`, none of which apply to `check` (which never writes).
 - **The default-target decision.** CLAUDE.md is synced by default; `--gemini`
   adds GEMINI.md; `--no-claude` opts CLAUDE.md out (`--no-claude` without
   `--gemini` is an error — nothing to sync). The shared `selectTargets` helper
-  makes this decision for all three subcommands.
-- **Destroy protection (`sync` and `pre-commit`).** Both pass `--force`/`-f`
-  through as `Options.Force`. `sync` calls `sync.Run`, which returns a
-  `*sync.DestroyError` when it refuses to overwrite a target with unstaged
-  changes; `runSync` type-asserts via `errors.As` to print the path list and the
-  `--force` hint, the same wording `runPreCommit` already uses for
-  `PreCommitResult.DestroyPaths`. Do not let the two message strings drift apart.
-- **The `pre-commit` subcommand.** Adds `--stage`/`-S` (auto `git add`) on top of
-  the shared destroy protection, and verifies the result against the git index
-  (see [`internal/sync`](../../internal/sync/AGENTS.md)). It calls
-  `sync.RunPreCommit` and turns the returned `PreCommitResult` into messages and
-  an exit code. The package owns all git/IO; this layer only formats.
-- **Exit codes.** `sync`: `0` up to date, `1` when changes were made or a
-  destroy-protection block occurred. `check`: `0` in sync, `1` on drift.
-  `pre-commit`: `1` on a destroy-protection block or an index-sync violation
-  (reference not staged, no `--stage`); `0` once the reference is staged. With
-  `--stage` it stages and returns `0` in one pass.
+  makes this decision for both subcommands.
+- **`sync` maps `sync.Result` to messages and an exit code; the package owns
+  all git/IO, this layer only formats.** In order: a non-empty
+  `DestroyPaths` blocks (refused to overwrite unstaged work, inside a git
+  repository) and prints the `--force` hint; a non-empty `NoGitPaths` blocks
+  (refused to write at all, outside a git repository) and prints the
+  `--force` hint; a non-empty `SyncPaths` (inside a git repository, the
+  reference is not staged) prints the `git add` hint and `--stage` hint;
+  otherwise, if `--fail-on-change` was passed and `Result.Wrote` is true, exit
+  1 anyway — this check runs last and never blocks a write or a stage, it only
+  changes the final exit code (see [`internal/sync`](../../internal/sync/AGENTS.md)
+  for what populates each field; `DestroyPaths` and `NoGitPaths` are mutually
+  exclusive — one is the git-repository case, the other isn't). `--fail-on-change`
+  itself is CLI-only: `sync.Options` has no such field, since it does not
+  change what `Run` does, only how the CLI reports it.
+- **Exit codes.** `sync`: `0` once nothing is left to do (including after a
+  successful `--stage`); `1` on a destroy-protection block, a refusal to write
+  outside a git repository, an index-sync violation (reference not staged, no
+  `--stage`), or `--fail-on-change` after a write. `check`: `0` in sync (on
+  disk and, inside a git repository, in the git index), `1` on any drift —
+  `check` never writes, so it has no `--force`/outside-git concern at all.
 - **Usage text.** Each subcommand sets its own `fs.Usage` to a header constant,
   `printFlags(fs, aliases)`, then an examples constant — one aligned line per
   flag, collapsing shorthand aliases (`-f`, `-S`) onto their long form via the
@@ -47,5 +50,5 @@ argument prints an error plus `helpText` and exits 1.
 
 - `version` / `commit` / `date` are injected at build time via `-ldflags` (see
   `.goreleaser.yaml`); leave the defaults as `dev` / `none` / `unknown`.
-- User-facing flag or behavior changes must be reflected in the three READMEs and
-  `docs/husky.md`.
+- User-facing flag or behavior changes must be reflected in the three READMEs,
+  `docs/husky.md`, and `.pre-commit-hooks.yaml`/`.pre-commit-config.yaml`.

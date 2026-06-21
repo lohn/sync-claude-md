@@ -2,7 +2,8 @@
 
 Core synchronization logic. Pure library code with no CLI concerns; the entry
 point in `cmd/sync-claude-md` wires each subcommand's flags into `Options` and
-calls `Run` (`sync`/`check`) or `RunPreCommit` (`pre-commit`).
+calls `Run` for both `sync` and `check` (`Options.Check` switches between
+them).
 
 ## Files
 
@@ -11,9 +12,9 @@ constants.go    Target definitions (CLAUDE.md/GEMINI.md), file mode, skip-dir se
 targets.go      target / targetFile types, resolveTargets
 discover.go     AGENTS.md + target-file discovery (filesystem walk, git, explicit args)
 mutate.go       Pure plan/apply: planSync / planCleanup decide a plannedAction; applyAction writes it
-sync.go         Run orchestration + Options + DestroyError; planActions (decide all) → applyActions (write all)
-precommit.go    Destroy-protection (checkDestroy, shared with Run) + pre-commit subcommand: git index checks, RunPreCommit, CheckPreCommit
-*_test.go       Per-file unit tests (precommit_test.go and parts of sync_test.go use real git repos)
+sync.go         Run orchestration + Options + Result; planActions (decide all) → applyActions (write all)
+gitstate.go     Git-index/worktree checks: checkDestroy (axisDestroy), checkIndexSync (axisSync), isIgnored, inGitRepo, gitAdd, etc.
+*_test.go       Per-file unit tests (gitstate_test.go and parts of sync_test.go use real git repos)
 ```
 
 ## Architecture notes
@@ -36,34 +37,68 @@ precommit.go    Destroy-protection (checkDestroy, shared with Run) + pre-commit 
   reference the user moved lower is still cleaned up), along with one blank line
   immediately after each. Lines that merely contain `ref` as a substring are left
   untouched.
+- **`plannedAction.wantRef` records the desired ref presence, separately from
+  `kind`.** `kind` alone cannot distinguish a satisfied sync from a satisfied
+  cleanup — both collapse to `actionNone`. `planSync` always sets `wantRef:
+  true`, `planCleanup` always leaves it `false`. `checkIndexSync` relies on
+  this to catch a target that is already correct on disk but never staged
+  (see below), including orphans cleaned up by `planStaleTargets`.
 - **`planCleanup` no-ops on a missing file.** `planActions` calls it for every
   deleted AGENTS.md across each selected target, so a directory that never had a
   given target file must not produce an action.
+- **Ignored targets are skipped by default, everywhere.** Every site that
+  turns an AGENTS.md directory into a target path — the main sync loop, the
+  cleanup loop, and `planStaleTargets`'s `--all` orphan sweep — checks
+  `!opts.NoIgnore && isIgnored(targetPath)` and skips entirely (no
+  `plannedAction` at all) rather than just skipping the write. This is what
+  makes `checkIndexSync` correct for ignored targets without any special
+  casing there: they are simply never in `actions`. `Options.NoIgnore`
+  overrides this everywhere at once.
 - **Plan first, then apply.** `planActions` decides the full set of
   `plannedAction`s without touching disk; `applyActions` writes them. This lets
-  `pre-commit` verify before any write happens and means no file is written
-  because of a _decision_ that later proves wrong. It is not transactional,
-  though: if a later `applyActions` write fails mid-way, earlier writes remain on
-  disk.
-- **Destroy protection is shared between `Run` and `RunPreCommit`.**
-  `checkDestroy` (in `precommit.go`) takes the planned actions and reports any
-  write to an existing file with unstaged changes (`axisDestroy`); a create is
-  exempt since there is nothing to destroy. `Run` calls it directly and returns
-  a `*DestroyError`; `CheckPreCommit` calls it as the first half of its result.
-  Both are cleared by `Options.Force`. Do not fork this check per caller — add
-  to `checkDestroy` itself.
-- **`Run`'s destroy check only runs inside a git repository.** "Unstaged" is a
-  git concept, so `Run` gates the check on `inGitRepo()` rather than failing an
-  `--all` or explicit-file run that does not otherwise require git (unlike
-  `pre-commit`, which already requires git for the index checks below).
-- **`pre-commit` additionally verifies against the git index, not just the
-  worktree.** `precommit.go` enforces a second, pre-commit-only axis — **index
-  sync** (`axisSync`, the `@AGENTS.md` reference must be staged so the sync
-  lands in the commit — cleared by `--stage` or a manual `git add`). The check
-  looks at the staged blob (`git cat-file blob :path`), so a file present on
-  disk but untracked still fails — fixing the original "second run silently
-  passes" bug. Git-ignored targets are a complete no-op (skipped in
-  `planActions` and `CheckPreCommit`).
+  `Run` verify the git index before any write happens and means no file is
+  written because of a _decision_ that later proves wrong. It is not
+  transactional, though: if a later `applyActions` write fails mid-way,
+  earlier writes remain on disk.
+- **Before writing, `Run` picks exactly one of two pre-write guards depending
+  on `inGitRepo()` — never both.**
+  - Inside a git repository: `checkDestroy` (axisDestroy, in `gitstate.go`) —
+    any planned write to an existing file with unstaged changes, which would
+    clobber the user's uncommitted work; a create is exempt since there is
+    nothing to destroy. Violations populate `Result.DestroyPaths`.
+  - Outside a git repository: there is no "unstaged" to check, and no git
+    history to recover from at all, so `Run` instead refuses every write
+    outright — `anyModifies(actions)` is true → block, full stop, even a
+    brand-new file. Violations populate `Result.NoGitPaths` (the full list of
+    `modifyingPaths(actions)`).
+
+  Both are cleared by `Options.Force`, and both leave `actions` fully
+  unapplied (nothing partially written). Do not add a third "is it safe"
+  check elsewhere — gate any new pre-write safety concern through this same
+  inside/outside-git branch in `Run`.
+- **`checkIndexSync` (axisSync, in `gitstate.go`) is a separate, post-write,
+  git-repository-only check.** For every action (including a no-op
+  `actionNone`), it asks whether the git index already matches `wantRef`.
+  This covers a target already correct on disk but never staged — the
+  original "second run silently passes" bug — by checking the staged blob
+  (`git cat-file blob :path`) rather than the working tree. Violations
+  populate `Result.SyncPaths`, cleared by `Options.Stage` (auto `git add`) or
+  a manual `git add`. Outside a git repository this check does not run at
+  all — moot, since `Run` already refused to write anything without
+  `Options.Force` (and even with `Options.Force`, "staged" still has no
+  meaning without a repository).
+- **`Options.Check` bypasses both guards and never writes.** It folds
+  `anyModifies(actions)` and, inside a git repository, a non-empty
+  `checkIndexSync` result into `Result.Changed`. It does not surface
+  `DestroyPaths`/`NoGitPaths`, since a content-drift action already implies
+  "changed" regardless of whether a real run would later be blocked, and
+  `check` has no `Options.Force` concept at all.
+- **`findAgentsFiles` falls back to a full scan outside a git repository.**
+  When there is no git repository and neither `Options.All` nor
+  `Options.Files` was given, the default "staged AGENTS.md" discovery is
+  meaningless without an index, so it scans the whole tree instead — the same
+  files `--all` would find, just without the orphan-target sweep that
+  `Options.All` additionally triggers in `planActions`.
 
 ## Testing
 
@@ -76,6 +111,6 @@ Each test runs in an isolated temp dir (`setupTestDir` + `chdir`), so the suite
 never touches the working tree. Mutation tests in `mutate_test.go` are
 table-driven over each target's reference line (`refCases`), so covering a new
 target is usually a new table entry rather than new test functions.
-`initGitRepo`/`runGit` (defined in `precommit_test.go`) set up a real, isolated
+`initGitRepo`/`runGit` (defined in `gitstate_test.go`) set up a real, isolated
 git repo for tests that need one — `sync_test.go`'s destroy-protection tests
 use them too rather than duplicating git setup.
