@@ -39,6 +39,13 @@
     {
       matchManagers: ["github-actions"],
       groupName: "github-actions",
+      // groupSingleUpdates: false is required for commitMessageTopic above to
+      // actually take effect for single-dependency updates. Renovate's default
+      // (true) applies the group's commitMessageTopic ("github-actions") even
+      // when only one dependency is in the branch, which produces a nonsensical
+      // "update github-actions to v7" title for what is really a single
+      // dependency bump.
+      groupSingleUpdates: false,
       commitMessageTopic: "{{depName}}",
       group: {
         commitMessageTopic: "github-actions",
@@ -54,6 +61,8 @@
     {
       matchManagers: ["mise", "pre-commit", "custom.regex"],
       groupName: "dev tools",
+      // See the github-actions rule above for why groupSingleUpdates: false is needed.
+      groupSingleUpdates: false,
       commitMessageTopic: "{{depName}}",
       group: {
         commitMessageTopic: "dev tools",
