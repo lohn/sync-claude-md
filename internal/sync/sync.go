@@ -71,32 +71,16 @@ func Run(opts Options) (Result, error) {
 	git := inGitRepo()
 
 	if opts.Check {
-		changed := anyModifies(actions)
-		if git {
-			violations, err := checkIndexSync(actions)
-			if err != nil {
-				return Result{}, err
-			}
-			if len(violations) > 0 {
-				changed = true
-			}
-		}
-		return Result{Changed: changed}, nil
+		return checkResult(actions, git)
 	}
 
 	if !opts.Force {
-		if !git {
-			if anyModifies(actions) {
-				return Result{NoGitPaths: modifyingPaths(actions)}, nil
-			}
-		} else {
-			destroy, err := checkDestroy(actions)
-			if err != nil {
-				return Result{}, err
-			}
-			if len(destroy) > 0 {
-				return Result{DestroyPaths: paths(destroy)}, nil
-			}
+		blocked, err := guardUnsafeWrite(actions, git)
+		if err != nil {
+			return Result{}, err
+		}
+		if blocked != nil {
+			return *blocked, nil
 		}
 	}
 
@@ -105,8 +89,54 @@ func Run(opts Options) (Result, error) {
 		return Result{}, err
 	}
 
+	return finishRun(actions, opts, git, wrote)
+}
+
+// checkResult computes Result.Changed for Options.Check mode: true if any
+// selected target's on-disk content, or (inside a git repository) git-index
+// state, differs from what its sibling AGENTS.md implies.
+func checkResult(actions []plannedAction, git bool) (Result, error) {
+	changed := anyModifies(actions)
+	if git {
+		violations, err := checkIndexSync(actions)
+		if err != nil {
+			return Result{}, err
+		}
+		if len(violations) > 0 {
+			changed = true
+		}
+	}
+	return Result{Changed: changed}, nil
+}
+
+// guardUnsafeWrite picks exactly one of the two pre-write guards depending on
+// git — never both, as documented on Run — and returns the Result to return
+// immediately if the planned write must be refused, or nil to proceed.
+func guardUnsafeWrite(actions []plannedAction, git bool) (*Result, error) {
+	if !git {
+		if anyModifies(actions) {
+			return &Result{NoGitPaths: modifyingPaths(actions)}, nil
+		}
+		return nil, nil
+	}
+
+	destroy, err := checkDestroy(actions)
+	if err != nil {
+		return nil, err
+	}
+	if len(destroy) > 0 {
+		return &Result{DestroyPaths: paths(destroy)}, nil
+	}
+	return nil, nil
+}
+
+// finishRun assembles the Result after a successful write: it checks the git
+// index for sync violations and, if Options.Stage was given (inside a git
+// repository), stages everything that still needs it.
+func finishRun(actions []plannedAction, opts Options, git, wrote bool) (Result, error) {
 	var syncViolations []violation
 	if git {
+		var err error
 		syncViolations, err = checkIndexSync(actions)
 		if err != nil {
 			return Result{}, err
