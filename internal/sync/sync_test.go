@@ -647,6 +647,10 @@ func TestRunForceOverridesDestroyProtection(t *testing.T) {
 // repository as "nothing to protect" rather than failing, since --all and
 // explicit file lists do not otherwise require git.
 func TestRunDestroyProtectionSkippedOutsideGitRepo(t *testing.T) {
+	// Without this, an ambient GIT_DIR from an outer git operation (e.g. this
+	// suite running inside the pre-push hook) would make inGitRepo() see the
+	// outer repo instead of "no repository here".
+	isolateGitEnv(t)
 	tmpDir := setupTestDir(t)
 	chdir(t, tmpDir)
 	// No git init.
@@ -690,6 +694,10 @@ func TestRunCheckModeIgnoresDestroyProtection(t *testing.T) {
 // falls back to a full scan rather than erroring — "staged" has no meaning
 // outside git.
 func TestDefaultFallsBackToFullScanOutsideGitRepo(t *testing.T) {
+	// Without this, an ambient GIT_DIR from an outer git operation (e.g. this
+	// suite running inside the pre-push hook) would make inGitRepo() see the
+	// outer repo instead of "no repository here".
+	isolateGitEnv(t)
 	tmpDir := setupTestDir(t)
 	chdir(t, tmpDir)
 	// No git init, no --all, no Files.
