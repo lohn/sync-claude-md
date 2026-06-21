@@ -67,3 +67,32 @@ argument prints an error plus `helpText` and exits 1.
   doc comment and `main_test.go` for both cases.
 - User-facing flag or behavior changes must be reflected in the three READMEs,
   `docs/husky.md`, and `.pre-commit-hooks.yaml`/`.pre-commit-config.yaml`.
+
+## Testing
+
+```sh
+go test ./cmd/sync-claude-md/...
+```
+
+- `testhelpers_test.go` — temp-dir/git/output-capture helpers. These mirror
+  `internal/sync`'s own test helpers (`setupTestDir`, `chdir`, `writeFile`,
+  `initGitRepo`, `runGit`, `isolateGitEnv`) but are a separate, intentionally
+  duplicated copy: unexported test helpers cannot be shared across packages.
+  `captureStderr` is the one addition specific to this package, for asserting
+  on the messages `runSync`/`runCheck` print.
+- `main_test.go` — direct, in-process tests of every testable function:
+  `versionFromBuildInfo`, `selectTargets`, `printFlags`, and `runSync`/
+  `runCheck` (one test per `sync.Result` field they map to a message and exit
+  code — `DestroyPaths`, `NoGitPaths`, `SyncPaths`, plus `--fail-on-change`
+  and the `check` command's `Changed`). These exercise real `sync.Run` calls
+  against temp dirs/git repos rather than mocking it, but stay focused on the
+  CLI's own responsibility (flag-to-`Options` wiring, `Result`-to-message/exit
+  code mapping) rather than re-proving `sync.Run`'s internal correctness,
+  which `internal/sync`'s own suite already covers.
+- `cli_test.go` — black-box tests that build the real binary once in
+  `TestMain` and exec it. `main()`'s `"sync"`/`"check"`/unknown-command
+  branches call `os.Exit` directly, so they cannot be invoked in-process
+  without killing the test binary; this is the only way to cover them. As a
+  side effect, `go test -cover` reports 0% for `main` itself even though
+  `TestCLI*` does exercise it — coverage instrumentation does not cross into
+  a separately-exec'd binary.
