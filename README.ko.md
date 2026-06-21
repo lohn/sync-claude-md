@@ -124,7 +124,8 @@ sync-claude-md sync --fail-on-change
 - `0` — 더 이상 할 일이 없는 상태: 모든 것이 최신이고 (git 저장소 내에서는)
   스테이징됨
 - `1` — 손상 방지로 인한 차단, 스테이징되지 않은 동기화 위반, 또는 (`check`의
-  경우) 드리프트. `--fail-on-change` 사용 시에는 쓰기가 발생한 것만으로도
+  경우) 드리프트가 있는 경우. `--fail-on-change` 사용 시에는 쓰기가 발생한
+  것만으로도 종료 코드 `1`이 됩니다
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 

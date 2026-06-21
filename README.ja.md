@@ -124,7 +124,8 @@ sync-claude-md sync --fail-on-change
 - `0` — やるべきことが何もない状態：すべて最新で、（git リポジトリ内では）
   ステージ済み
 - `1` — 破壊防止によるブロック、未ステージの同期違反、または（`check` の場合）
-  ドリフトがある。`--fail-on-change` 指定時は、書き込みが発生しただけでも
+  ドリフトがある場合。`--fail-on-change` 指定時は、書き込みが発生しただけでも
+  終了コード `1` になります
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
