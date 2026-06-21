@@ -115,6 +115,19 @@ repos:
       - id: sync-claude-md
 ```
 
+`sync-claude-md`는 Go로 작성되어 있으며, 기본 `sync-claude-md` 훅은
+`language: golang`을 사용하므로 prek/pre-commit이 처음 실행할 때 소스에서
+빌드합니다(Go 툴체인 필요). 모든 머신에 Go를 설치하고 싶지 않다면 다른 훅
+ID로 바꿀 수 있습니다. 모두 이 저장소의
+[`.pre-commit-hooks.yaml`](.pre-commit-hooks.yaml)에 정의되어 있습니다:
+
+| 훅 ID                   | 설치 방식                                    | 필요한 것        |
+| ----------------------- | -------------------------------------------- | ---------------- |
+| `sync-claude-md`        | Go 툴체인(소스 빌드)                         | Go               |
+| `sync-claude-md-pip`    | PyPI wheel                                   | Python           |
+| `sync-claude-md-npm`    | npm 패키지                                   | Node.js          |
+| `sync-claude-md-system` | 이미 `PATH`에 있는 `sync-claude-md` 바이너리 | 추가 설치 불필요 |
+
 이 훅은 `sync-claude-md sync`를 실행하며, 기본적으로 동기화된 파일이
 스테이징되지 않았을 때 커밋을 실패시켜 다시 스테이징하고 커밋하도록 합니다.
 동기화된 파일을 자동으로 스테이징하려면 `args: ['--stage']`를 추가하세요:
