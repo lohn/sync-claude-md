@@ -24,14 +24,14 @@ Code は `CLAUDE.md` を、その他の多くのエージェント（GitHub Copi
 
 ## インストール
 
-### npm を使用（Node.js プロジェクト）
+### npm を使用
 
 ```bash
 npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
-### PyPI を使用（Python プロジェクト）
+### PyPI を使用
 
 ```bash
 pip install sync-claude-md
