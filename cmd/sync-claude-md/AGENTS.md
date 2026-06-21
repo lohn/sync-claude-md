@@ -21,20 +21,24 @@ argument prints an error plus `helpText` and exits 1.
   makes this decision for both subcommands.
 - **`sync` maps `sync.Result` to messages and an exit code; the package owns
   all git/IO, this layer only formats.** In order: a non-empty
-  `DestroyPaths` blocks (refused to overwrite unstaged work) and prints the
+  `DestroyPaths` blocks (refused to overwrite unstaged work, inside a git
+  repository) and prints the `--force` hint; a non-empty `NoGitPaths` blocks
+  (refused to write at all, outside a git repository) and prints the
   `--force` hint; a non-empty `SyncPaths` (inside a git repository, the
   reference is not staged) prints the `git add` hint and `--stage` hint;
   otherwise, if `--fail-on-change` was passed and `Result.Wrote` is true, exit
   1 anyway — this check runs last and never blocks a write or a stage, it only
   changes the final exit code (see [`internal/sync`](../../internal/sync/AGENTS.md)
-  for what populates each field). `--fail-on-change` itself is CLI-only:
-  `sync.Options` has no such field, since it does not change what `Run` does,
-  only how the CLI reports it.
+  for what populates each field; `DestroyPaths` and `NoGitPaths` are mutually
+  exclusive — one is the git-repository case, the other isn't). `--fail-on-change`
+  itself is CLI-only: `sync.Options` has no such field, since it does not
+  change what `Run` does, only how the CLI reports it.
 - **Exit codes.** `sync`: `0` once nothing is left to do (including after a
-  successful `--stage`); `1` on a destroy-protection block, an index-sync
-  violation (reference not staged, no `--stage`), or `--fail-on-change` after
-  a write. `check`: `0` in sync (on disk and, inside a git repository, in the
-  git index), `1` on any drift.
+  successful `--stage`); `1` on a destroy-protection block, a refusal to write
+  outside a git repository, an index-sync violation (reference not staged, no
+  `--stage`), or `--fail-on-change` after a write. `check`: `0` in sync (on
+  disk and, inside a git repository, in the git index), `1` on any drift —
+  `check` never writes, so it has no `--force`/outside-git concern at all.
 - **Usage text.** Each subcommand sets its own `fs.Usage` to a header constant,
   `printFlags(fs, aliases)`, then an examples constant — one aligned line per
   flag, collapsing shorthand aliases (`-f`, `-S`) onto their long form via the

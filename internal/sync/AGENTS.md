@@ -60,30 +60,45 @@ gitstate.go     Git-index/worktree checks: checkDestroy (axisDestroy), checkInde
   written because of a _decision_ that later proves wrong. It is not
   transactional, though: if a later `applyActions` write fails mid-way,
   earlier writes remain on disk.
-- **Two independent git-backed checks, both in `gitstate.go`, both gated by
-  `inGitRepo()` in `Run`.**
-  - `checkDestroy` (axisDestroy): any planned write to an existing file with
-    unstaged changes, which would clobber the user's uncommitted work; a
-    create is exempt since there is nothing to destroy. Cleared by
-    `Options.Force`.
-  - `checkIndexSync` (axisSync): for every action (including a no-op
-    `actionNone`), whether the git index already matches `wantRef`. This
-    covers a target already correct on disk but never staged — the original
-    "second run silently passes" bug — by checking the staged blob
-    (`git cat-file blob :path`) rather than the working tree. Cleared by
-    `Options.Stage` (auto `git add`) or a manual `git add`.
+- **Before writing, `Run` picks exactly one of two pre-write guards depending
+  on `inGitRepo()` — never both.**
+  - Inside a git repository: `checkDestroy` (axisDestroy, in `gitstate.go`) —
+    any planned write to an existing file with unstaged changes, which would
+    clobber the user's uncommitted work; a create is exempt since there is
+    nothing to destroy. Violations populate `Result.DestroyPaths`.
+  - Outside a git repository: there is no "unstaged" to check, and no git
+    history to recover from at all, so `Run` instead refuses every write
+    outright — `anyModifies(actions)` is true → block, full stop, even a
+    brand-new file. Violations populate `Result.NoGitPaths` (the full list of
+    `modifyingPaths(actions)`).
 
-  `Run` computes `checkDestroy` before writing (it can block the write) and
-  `checkIndexSync` after (it only reports). `Options.Check` skips writing
-  entirely and folds both `anyModifies(actions)` and a non-empty
-  `checkIndexSync` result into `Result.Changed`; it does not surface
-  `DestroyPaths`, since a content-drift action already implies "changed"
-  regardless of whether a real run would later be blocked.
-- **Outside a git repository, both checks — and `Options.Stage` — are no-ops,
-  not errors.** "Staged"/"unstaged" are git concepts. `findAgentsFiles` also
-  falls back to a full scan when there is no git repository and neither
-  `Options.All` nor `Options.Files` was given, since the default "staged
-  AGENTS.md" discovery is meaningless without an index.
+  Both are cleared by `Options.Force`, and both leave `actions` fully
+  unapplied (nothing partially written). Do not add a third "is it safe"
+  check elsewhere — gate any new pre-write safety concern through this same
+  inside/outside-git branch in `Run`.
+- **`checkIndexSync` (axisSync, in `gitstate.go`) is a separate, post-write,
+  git-repository-only check.** For every action (including a no-op
+  `actionNone`), it asks whether the git index already matches `wantRef`.
+  This covers a target already correct on disk but never staged — the
+  original "second run silently passes" bug — by checking the staged blob
+  (`git cat-file blob :path`) rather than the working tree. Violations
+  populate `Result.SyncPaths`, cleared by `Options.Stage` (auto `git add`) or
+  a manual `git add`. Outside a git repository this check does not run at
+  all — moot, since `Run` already refused to write anything without
+  `Options.Force` (and even with `Options.Force`, "staged" still has no
+  meaning without a repository).
+- **`Options.Check` bypasses both guards and never writes.** It folds
+  `anyModifies(actions)` and, inside a git repository, a non-empty
+  `checkIndexSync` result into `Result.Changed`. It does not surface
+  `DestroyPaths`/`NoGitPaths`, since a content-drift action already implies
+  "changed" regardless of whether a real run would later be blocked, and
+  `check` has no `Options.Force` concept at all.
+- **`findAgentsFiles` falls back to a full scan outside a git repository.**
+  When there is no git repository and neither `Options.All` nor
+  `Options.Files` was given, the default "staged AGENTS.md" discovery is
+  meaningless without an index, so it scans the whole tree instead — the same
+  files `--all` would find, just without the orphan-target sweep that
+  `Options.All` additionally triggers in `planActions`.
 
 ## Testing
 

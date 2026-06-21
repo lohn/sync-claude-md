@@ -11,14 +11,13 @@ import (
 // configures a deterministic identity with signing disabled so commits never
 // prompt. Returns the repo path.
 //
-// It first scrubs the ambient git environment so the suite is hermetic: when run
-// from inside another git operation (e.g. the pre-push hook), inherited GIT_DIR
-// / GIT_INDEX_FILE and a global core.hooksPath would otherwise make git operate
-// on the outer repo and fire its hooks on these temp commits.
+// setupTestDir already scrubs the ambient git environment so the suite is
+// hermetic: when run from inside another git operation (e.g. the pre-push
+// hook), inherited GIT_DIR / GIT_INDEX_FILE and a global core.hooksPath would
+// otherwise make git operate on the outer repo and fire its hooks on these
+// temp commits.
 func initGitRepo(t *testing.T) string {
 	t.Helper()
-	isolateGitEnv(t)
-
 	dir := setupTestDir(t)
 	chdir(t, dir)
 	runGit(t, "init", "-q")

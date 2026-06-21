@@ -52,6 +52,9 @@ sync-claude-md sync --all
 - If `CLAUDE.md` becomes empty → deletes the file
 - If `sync` would overwrite a target file that has unstaged changes → exits 1
   without writing instead (pass `--force`/`-f` to overwrite anyway)
+- Outside a git repository it refuses to write anything at all, including a
+  brand-new file (pass `--force`/`-f` to write anyway) — not relevant when run
+  through husky, which always operates inside a git repository
 - Inside a git repository, it also exits 1 when a synced file is not staged in
   the git index (so the sync is guaranteed to land in the commit); pass
   `--stage` to stage automatically

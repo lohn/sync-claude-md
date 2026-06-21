@@ -7,9 +7,15 @@ import (
 	"testing"
 )
 
-// setupTestDir creates a temporary directory for testing.
+// setupTestDir creates a temporary directory for testing. It also isolates
+// the ambient git environment (see isolateGitEnv), since tests that never
+// call initGitRepo rely on there being no git repository at all; without
+// this, a test running nested inside another git operation (e.g. this suite
+// running inside the pre-push hook) would inherit GIT_DIR and see the outer
+// repo instead.
 func setupTestDir(t *testing.T) string {
 	t.Helper()
+	isolateGitEnv(t)
 	tmpDir, err := os.MkdirTemp("", "sync-claude-md-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -60,13 +66,16 @@ func readFile(t *testing.T, path string) string {
 }
 
 // TestCreateNewClaude creates CLAUDE.md when AGENTS.md exists but CLAUDE.md doesn't.
+// Force is set throughout this file's plain (non-initGitRepo) tests because they
+// are about the mutation logic, not the outside-git write guard, which has its
+// own dedicated tests below.
 func TestCreateNewClaude(t *testing.T) {
 	tmpDir := setupTestDir(t)
 	chdir(t, tmpDir)
 
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -88,7 +97,7 @@ func TestUpdateExistingClaude(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "# Existing Content\n\nSome text.\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -115,7 +124,7 @@ func TestPrependInsertsBlankLine(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "# Existing\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -139,7 +148,7 @@ func TestReferenceAnywhereIsKept(t *testing.T) {
 	original := "# Title\n\nSome intro.\n\n@AGENTS.md\n"
 	writeFile(t, "CLAUDE.md", original)
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -160,7 +169,7 @@ func TestIdempotent(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n\n# Existing\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -184,7 +193,7 @@ func TestCleanupRemovesReference(t *testing.T) {
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n\n# Existing\n")
 
 	// First run to sync
-	_, err := Run(Options{All: true, Claude: true})
+	_, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -193,7 +202,7 @@ func TestCleanupRemovesReference(t *testing.T) {
 	_ = os.Remove("AGENTS.md")
 
 	// Run again
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -219,7 +228,7 @@ func TestCleanupDeletesEmptyFile(t *testing.T) {
 	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
 
 	// Sync first
-	_, err := Run(Options{All: true, Claude: true})
+	_, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -228,7 +237,7 @@ func TestCleanupDeletesEmptyFile(t *testing.T) {
 	_ = os.Remove("AGENTS.md")
 
 	// Run cleanup
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -287,7 +296,7 @@ func TestSubdirectory(t *testing.T) {
 
 	writeFile(t, "src/AGENTS.md", "# Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -310,7 +319,7 @@ func TestMultipleDirectories(t *testing.T) {
 	writeFile(t, "src/AGENTS.md", "# Src Agents\n")
 	writeFile(t, "docs/AGENTS.md", "# Docs Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -327,7 +336,7 @@ func TestMultipleDirectories(t *testing.T) {
 	}
 
 	// Run again should be idempotent
-	res, err = Run(Options{All: true, Claude: true})
+	res, err = Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -345,7 +354,7 @@ func TestExplicitFilesArgument(t *testing.T) {
 	writeFile(t, "src/AGENTS.md", "# Src Agents\n")
 
 	// Only process root AGENTS.md
-	res, err := Run(Options{Files: []string{"AGENTS.md"}, Claude: true})
+	res, err := Run(Options{Files: []string{"AGENTS.md"}, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -374,7 +383,7 @@ func TestCleanupMultipleDirectories(t *testing.T) {
 	writeFile(t, "docs/AGENTS.md", "# Docs Agents\n")
 
 	// Initial sync
-	_, err := Run(Options{All: true, Claude: true})
+	_, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
@@ -384,7 +393,7 @@ func TestCleanupMultipleDirectories(t *testing.T) {
 	_ = os.Remove("docs/AGENTS.md")
 
 	// Run cleanup
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -415,7 +424,7 @@ func TestSkipsGitDir(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Root Agents\n")
 	writeFile(t, ".git/AGENTS.md", "# Git Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -441,7 +450,7 @@ func TestHiddenDirIsScanned(t *testing.T) {
 
 	writeFile(t, ".hidden/AGENTS.md", "# Hidden Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -463,7 +472,7 @@ func TestGeminiCreate(t *testing.T) {
 
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
-	res, err := Run(Options{All: true, Gemini: true})
+	res, err := Run(Options{All: true, Gemini: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -490,7 +499,7 @@ func TestGeminiUpdatePrependsReference(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "GEMINI.md", "# Existing\n")
 
-	res, err := Run(Options{All: true, Gemini: true})
+	res, err := Run(Options{All: true, Gemini: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -512,7 +521,7 @@ func TestSyncsBothTargets(t *testing.T) {
 
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
-	res, err := Run(Options{All: true, Claude: true, Gemini: true})
+	res, err := Run(Options{All: true, Claude: true, Gemini: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -528,7 +537,7 @@ func TestSyncsBothTargets(t *testing.T) {
 	}
 
 	// Idempotent on a second run.
-	res, err = Run(Options{All: true, Claude: true, Gemini: true})
+	res, err = Run(Options{All: true, Claude: true, Gemini: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -545,13 +554,13 @@ func TestGeminiCleanupRemovesReference(t *testing.T) {
 
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
-	if _, err := Run(Options{All: true, Gemini: true}); err != nil {
+	if _, err := Run(Options{All: true, Gemini: true, Force: true}); err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
 
 	_ = os.Remove("AGENTS.md")
 
-	res, err := Run(Options{All: true, Gemini: true})
+	res, err := Run(Options{All: true, Gemini: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -573,14 +582,14 @@ func TestCleanupOnlyTouchesSelectedTargets(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 
 	// Create both targets.
-	if _, err := Run(Options{All: true, Claude: true, Gemini: true}); err != nil {
+	if _, err := Run(Options{All: true, Claude: true, Gemini: true, Force: true}); err != nil {
 		t.Fatalf("setup Run failed: %v", err)
 	}
 
 	_ = os.Remove("AGENTS.md")
 
 	// Clean up only Gemini.
-	if _, err := Run(Options{All: true, Gemini: true}); err != nil {
+	if _, err := Run(Options{All: true, Gemini: true, Force: true}); err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
 
@@ -643,14 +652,35 @@ func TestRunForceOverridesDestroyProtection(t *testing.T) {
 	}
 }
 
-// TestRunDestroyProtectionSkippedOutsideGitRepo treats the absence of a git
-// repository as "nothing to protect" rather than failing, since --all and
-// explicit file lists do not otherwise require git.
-func TestRunDestroyProtectionSkippedOutsideGitRepo(t *testing.T) {
-	// Without this, an ambient GIT_DIR from an outer git operation (e.g. this
-	// suite running inside the pre-push hook) would make inGitRepo() see the
-	// outer repo instead of "no repository here".
-	isolateGitEnv(t)
+// TestRunBlocksWritesOutsideGitRepoWithoutForce refuses to write anything
+// outside a git repository unless --force is given: there is no "unstaged"
+// concept to check against, and no git history to recover from, so even a
+// brand-new file requires explicit confirmation.
+func TestRunBlocksWritesOutsideGitRepoWithoutForce(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+	// No git init.
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	res, err := Run(Options{All: true, Claude: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if res.Wrote {
+		t.Fatal("expected Wrote=false outside a git repository without --force")
+	}
+	if len(res.NoGitPaths) != 1 || res.NoGitPaths[0] != "CLAUDE.md" {
+		t.Fatalf("expected CLAUDE.md in NoGitPaths, got %+v", res.NoGitPaths)
+	}
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Fatal("expected CLAUDE.md to NOT be created without --force")
+	}
+}
+
+// TestRunForceAllowsWritesOutsideGitRepo allows Options.Force to write
+// outside a git repository.
+func TestRunForceAllowsWritesOutsideGitRepo(t *testing.T) {
 	tmpDir := setupTestDir(t)
 	chdir(t, tmpDir)
 	// No git init.
@@ -658,7 +688,7 @@ func TestRunDestroyProtectionSkippedOutsideGitRepo(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Agents\n")
 	writeFile(t, "CLAUDE.md", "# old\n")
 
-	res, err := Run(Options{All: true, Claude: true})
+	res, err := Run(Options{All: true, Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}
@@ -689,15 +719,35 @@ func TestRunCheckModeIgnoresDestroyProtection(t *testing.T) {
 	}
 }
 
+// TestRunCheckModeIgnoresNoGitGuard reports drift outside a git repository too,
+// since check mode never writes and so never needs --force.
+func TestRunCheckModeIgnoresNoGitGuard(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+	// No git init.
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+
+	res, err := Run(Options{All: true, Check: true, Claude: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !res.Changed {
+		t.Fatal("expected Changed=true in check mode")
+	}
+	if _, err := os.Stat("CLAUDE.md"); !os.IsNotExist(err) {
+		t.Fatal("expected CLAUDE.md to NOT be created in check mode")
+	}
+}
+
 // TestDefaultFallsBackToFullScanOutsideGitRepo verifies that, without --all,
 // --files, or a git repository, the default "staged AGENTS.md" discovery
 // falls back to a full scan rather than erroring — "staged" has no meaning
-// outside git.
+// outside git. --force is passed because writing outside a git repository
+// requires it regardless of discovery mode (see
+// TestRunBlocksWritesOutsideGitRepoWithoutForce); this test is only about
+// discovery.
 func TestDefaultFallsBackToFullScanOutsideGitRepo(t *testing.T) {
-	// Without this, an ambient GIT_DIR from an outer git operation (e.g. this
-	// suite running inside the pre-push hook) would make inGitRepo() see the
-	// outer repo instead of "no repository here".
-	isolateGitEnv(t)
 	tmpDir := setupTestDir(t)
 	chdir(t, tmpDir)
 	// No git init, no --all, no Files.
@@ -705,7 +755,7 @@ func TestDefaultFallsBackToFullScanOutsideGitRepo(t *testing.T) {
 	writeFile(t, "AGENTS.md", "# Root Agents\n")
 	writeFile(t, "src/AGENTS.md", "# Src Agents\n")
 
-	res, err := Run(Options{Claude: true})
+	res, err := Run(Options{Claude: true, Force: true})
 	if err != nil {
 		t.Fatalf("Run failed: %v", err)
 	}

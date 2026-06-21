@@ -15,7 +15,7 @@ type Options struct {
 	Claude   bool     // sync CLAUDE.md
 	Gemini   bool     // sync GEMINI.md
 	Stage    bool     // git add the synced/cleaned-up target files (inside a git repository only)
-	Force    bool     // write/overwrite even if a target has unstaged changes
+	Force    bool     // write/overwrite even if a target has unstaged changes, or outside a git repository
 	NoIgnore bool     // also process target files that are git-ignored (default: skip them)
 }
 
@@ -29,8 +29,14 @@ type Result struct {
 	// DestroyPaths are existing target files with unstaged changes that the run
 	// refused to overwrite. Populated only when they block the run (no
 	// Options.Force); the run wrote nothing in that case. Always empty in Check
-	// mode and outside a git repository.
+	// mode and outside a git repository (see NoGitPaths instead).
 	DestroyPaths []string
+
+	// NoGitPaths are target files that would have been written outside a git
+	// repository. Populated only when they block the run (no Options.Force);
+	// the run wrote nothing in that case. Always empty in Check mode and inside
+	// a git repository (see DestroyPaths instead).
+	NoGitPaths []string
 
 	// SyncPaths are target files whose git-index state does not match the
 	// desired reference state. Populated only when they still need staging
@@ -47,13 +53,15 @@ type Result struct {
 //
 // Before writing, it refuses to overwrite an existing target file that has
 // unstaged changes, which would discard work that is not yet staged
-// (Result.DestroyPaths); pass Options.Force to skip this check. Inside a git
-// repository, it additionally verifies the result against the git index —
-// the target's reference state must be staged for a commit made now to
-// actually include it (Result.SyncPaths); pass Options.Stage to stage the
-// written files automatically. Both checks are skipped in Check mode (which
-// never writes) and outside a git repository, since "unstaged" and "staged"
-// are meaningless without one.
+// (Result.DestroyPaths); pass Options.Force to skip this check. Outside a git
+// repository "unstaged" cannot be evaluated at all, so it instead refuses to
+// write anything — including a brand-new file — since there is no git
+// history to recover from (Result.NoGitPaths); pass Options.Force to write
+// anyway. Inside a git repository, it additionally verifies the result
+// against the git index — the target's reference state must be staged for a
+// commit made now to actually include it (Result.SyncPaths); pass
+// Options.Stage to stage the written files automatically. All of this is
+// skipped in Check mode, which never writes.
 func Run(opts Options) (Result, error) {
 	actions, err := planActions(opts)
 	if err != nil {
@@ -76,13 +84,19 @@ func Run(opts Options) (Result, error) {
 		return Result{Changed: changed}, nil
 	}
 
-	if !opts.Force && git {
-		destroy, err := checkDestroy(actions)
-		if err != nil {
-			return Result{}, err
-		}
-		if len(destroy) > 0 {
-			return Result{DestroyPaths: paths(destroy)}, nil
+	if !opts.Force {
+		if !git {
+			if anyModifies(actions) {
+				return Result{NoGitPaths: modifyingPaths(actions)}, nil
+			}
+		} else {
+			destroy, err := checkDestroy(actions)
+			if err != nil {
+				return Result{}, err
+			}
+			if len(destroy) > 0 {
+				return Result{DestroyPaths: paths(destroy)}, nil
+			}
 		}
 	}
 

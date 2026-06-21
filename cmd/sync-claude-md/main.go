@@ -55,10 +55,13 @@ the intended git-hook use. Pass --all to scan the whole repository instead.
 Outside a git repository "staged" is meaningless, so the default falls back
 to a full scan too. Any [files...] given take priority over both.
 
-It enforces two guarantees:
+It enforces three guarantees:
   - Destroy protection: it refuses to overwrite an existing target file that
     has unstaged changes, which would discard your work, and exits 1 without
     writing. Pass --force to overwrite anyway.
+  - Outside a git repository, it refuses to write anything at all — even a
+    brand-new file — since there is no git history to recover from, and
+    exits 1. Pass --force to write anyway.
   - Index sync (inside a git repository only): the @AGENTS.md reference must
     be staged, so the sync actually lands in the next commit. If it is not
     (including a freshly created but untracked CLAUDE.md), it exits 1 and
@@ -162,7 +165,7 @@ func runSync(args []string) int {
 		stage        bool
 		failOnChange bool
 	)
-	fs.BoolVar(&force, "force", false, "Overwrite target files even if they have unstaged changes")
+	fs.BoolVar(&force, "force", false, "Overwrite targets with unstaged changes, or write at all outside a git repository")
 	fs.BoolVar(&force, "f", false, "Shorthand for --force")
 	fs.BoolVar(&stage, "stage", false, "git add the synced target files (inside a git repository only)")
 	fs.BoolVar(&stage, "S", false, "Shorthand for --stage")
@@ -202,6 +205,16 @@ func runSync(args []string) int {
 			fmt.Fprintf(os.Stderr, "  %s\n", p)
 		}
 		fmt.Fprintln(os.Stderr, "stage or discard your changes, or pass --force to overwrite.")
+		return 1
+	}
+
+	// Outside a git repository: nothing was written without explicit confirmation.
+	if len(res.NoGitPaths) > 0 {
+		fmt.Fprintln(os.Stderr, "error: refusing to write outside a git repository:")
+		for _, p := range res.NoGitPaths {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		fmt.Fprintln(os.Stderr, "pass --force to write anyway (no git history to recover from outside a repository).")
 		return 1
 	}
 

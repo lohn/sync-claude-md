@@ -96,25 +96,27 @@ intended git-hook use. Pass `--all` to scan the whole repository instead.
 Outside a git repository, "staged" is meaningless, so the default falls back
 to a full scan too.
 
-**`sync` enforces two guarantees:**
+**`sync` enforces three guarantees:**
 
 - **Destroy protection** — it refuses to overwrite an existing target file
   that has unstaged changes, which would discard your work, and exits `1`
-  without writing. Pass `--force` (`-f`) to overwrite anyway. This check only
-  applies inside a git repository.
+  without writing. Pass `--force` (`-f`) to overwrite anyway.
+- **Outside a git repository**, it refuses to write anything at all — even a
+  brand-new file — since there is no git history to recover from, and exits
+  `1`. Pass `--force` (`-f`) to write anyway.
 - **Index sync** (inside a git repository only) — the `@AGENTS.md` reference
   must be **staged**, so the sync actually lands in the next commit. If it is
   not (including a freshly created but untracked `CLAUDE.md`), it exits `1`
   and asks you to `git add` the file. Pass `--stage` (`-S`) to stage the
   synced files automatically and succeed in a single pass.
 
-| Flag               | Effect                                                               |
-| ------------------ | -------------------------------------------------------------------- |
-| `--all`            | Scan the entire repository instead of only staged files              |
-| `--stage`, `-S`    | `git add` the synced target files (inside a git repository only)     |
-| `--force`, `-f`    | Overwrite targets even if they have unstaged changes                 |
-| `--no-ignore`      | Also process target files that are git-ignored                       |
-| `--fail-on-change` | Exit `1` if any file was written, even after a successful sync/stage |
+| Flag               | Effect                                                                            |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `--all`            | Scan the entire repository instead of only staged files                           |
+| `--stage`, `-S`    | `git add` the synced target files (inside a git repository only)                  |
+| `--force`, `-f`    | Overwrite targets with unstaged changes, or write at all outside a git repository |
+| `--no-ignore`      | Also process target files that are git-ignored                                    |
+| `--fail-on-change` | Exit `1` if any file was written, even after a successful sync/stage              |
 
 > **Note**: `--stage` adds the whole target file, so it does not play well with
 > partial staging (`git add -p`). Omit `--stage` and stage manually if you rely
@@ -124,8 +126,9 @@ to a full scan too.
 
 - `0` — nothing left to do: everything is up to date and (inside a git
   repository) staged
-- `1` — a destroy-protection block, an unstaged index-sync violation, or
-  (with `check`) drift; or, with `--fail-on-change`, any write at all
+- `1` — a destroy-protection block, a refusal to write outside a git
+  repository, an unstaged index-sync violation, or (with `check`) drift; or,
+  with `--fail-on-change`, any write at all
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
