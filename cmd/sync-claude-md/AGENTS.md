@@ -48,14 +48,16 @@ argument prints an error plus `helpText` and exits 1.
 
 ## Notes
 
-- `version` / `commit` / `date` are injected at build time via `-ldflags` (see
-  `.goreleaser.yaml`); leave the defaults as `dev` / `none` / `unknown`. When
-  `-ldflags` did not run (e.g. `go install .../cmd/sync-claude-md@latest`,
-  which never invokes goreleaser), `init()` falls back to
-  `versionFromBuildInfo`, which reads the module version and VCS revision Go
-  embeds automatically via `runtime/debug.ReadBuildInfo`. The two are
-  independent: a `go install pkg@version` resolves the module version but has
-  no VCS checkout to stamp `commit` from (it stays at its default); a plain
+- `version` / `commit` / `date` are injected together at build time via
+  `-ldflags` (see `.goreleaser.yaml`); leave the defaults as `dev` / `none` /
+  `unknown`. `init()` only falls back to `versionFromBuildInfo` when all
+  three are still at their default — i.e. `-ldflags` did not run at all (e.g.
+  `go install .../cmd/sync-claude-md@latest`, which never invokes
+  goreleaser) — so a build that sets any of them via `-ldflags` is left
+  alone. The fallback reads the module version and VCS revision Go embeds
+  automatically via `runtime/debug.ReadBuildInfo`. The two are independent: a
+  `go install pkg@version` resolves the module version but has no VCS
+  checkout to stamp `commit` from (it stays at its default); a plain
   `go build` inside a git checkout has a VCS revision but no resolved module
   version. `date` is never derived this way: build info has no actual
   build-time field, only `vcs.time` (the timestamp of the `vcs.revision`

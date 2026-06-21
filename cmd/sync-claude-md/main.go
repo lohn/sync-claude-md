@@ -9,12 +9,14 @@ import (
 	"github.com/lohn/sync-claude-md/internal/sync"
 )
 
-// These variables are set by ldflags during release builds (see
+// These variables are set together by ldflags during release builds (see
 // .goreleaser.yaml). Other build paths — notably `go install
-// .../cmd/sync-claude-md@latest`, which never runs goreleaser — leave them at
-// these defaults, so init() falls back to the module version and VCS
-// revision Go embeds in the binary automatically. date is never derived this
-// way (see versionFromBuildInfo) and always keeps its default outside a
+// .../cmd/sync-claude-md@latest`, which never runs goreleaser — leave all
+// three at these defaults, so init() falls back to the module version and
+// VCS revision Go embeds in the binary automatically. init() only does this
+// when all three are still at their default, so a build that sets any of
+// them via -ldflags is left alone; date is never derived from build info
+// (see versionFromBuildInfo) and always keeps its default outside a
 // goreleaser build.
 var (
 	version = "dev"
@@ -23,7 +25,7 @@ var (
 )
 
 func init() {
-	if version != "dev" {
+	if version != "dev" || commit != "none" || date != "unknown" {
 		return // already set via -ldflags
 	}
 	if info, ok := debug.ReadBuildInfo(); ok {
