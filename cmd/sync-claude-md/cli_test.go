@@ -18,10 +18,17 @@ import (
 var binPath string
 
 func TestMain(m *testing.M) {
+	// os.Exit runs no deferred functions, so the cleanup defer must live
+	// inside a plain function call that returns normally; TestMain itself
+	// only calls os.Exit once, after that function has already returned.
+	os.Exit(runTests(m))
+}
+
+func runTests(m *testing.M) int {
 	tmpDir, err := os.MkdirTemp("", "sync-claude-md-cli-test-*")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "failed to create temp dir:", err)
-		os.Exit(1)
+		return 1
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
@@ -31,10 +38,10 @@ func TestMain(m *testing.M) {
 	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", binPath, ".")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to build test binary: %v\n%s\n", err, out)
-		os.Exit(1)
+		return 1
 	}
 
-	os.Exit(m.Run())
+	return m.Run()
 }
 
 // runBinary runs the built sync-claude-md binary with args in dir, returning

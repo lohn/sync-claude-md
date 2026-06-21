@@ -126,7 +126,10 @@ func runGit(t *testing.T, args ...string) {
 }
 
 // captureStderr redirects os.Stderr to a pipe for the duration of fn,
-// restores it afterward, and returns whatever fn wrote.
+// restores it afterward, and returns whatever fn wrote. The pipe is drained
+// by a goroutine running concurrently with fn, not after fn returns: fn
+// writing more than the OS pipe buffer (~64KB) would otherwise deadlock,
+// since nothing would be reading the other end yet.
 func captureStderr(t *testing.T, fn func()) string {
 	t.Helper()
 	orig := os.Stderr
@@ -137,14 +140,28 @@ func captureStderr(t *testing.T, fn func()) string {
 	os.Stderr = w
 	defer func() { os.Stderr = orig }()
 
+	type result struct {
+		out string
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, err := io.Copy(&buf, r)
+		done <- result{out: buf.String(), err: err}
+	}()
+
 	fn()
 
 	if err := w.Close(); err != nil {
 		t.Fatalf("failed to close pipe writer: %v", err)
 	}
-	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("failed to read pipe: %v", err)
+	res := <-done
+	if err := r.Close(); err != nil {
+		t.Fatalf("failed to close pipe reader: %v", err)
 	}
-	return buf.String()
+	if res.err != nil {
+		t.Fatalf("failed to read pipe: %v", res.err)
+	}
+	return res.out
 }
