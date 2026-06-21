@@ -114,6 +114,19 @@ repos:
       - id: sync-claude-md
 ```
 
+`sync-claude-md` は Go で書かれており、デフォルトの `sync-claude-md` フックは
+`language: golang` を使うため、prek/pre-commit が初回実行時にソースからビルド
+します（Go Toolchain が必要）。すべてのマシンに Go を入れたくない場合は、
+他のフック ID に切り替えられます。いずれもこのリポジトリの
+[`.pre-commit-hooks.yaml`](.pre-commit-hooks.yaml) で定義されています：
+
+| フック ID               | インストール方法                                 | 必要なもの           |
+| ----------------------- | ------------------------------------------------ | -------------------- |
+| `sync-claude-md`        | Go Toolchain（ソースからビルド）                 | Go                   |
+| `sync-claude-md-pip`    | PyPI の wheel                                    | Python               |
+| `sync-claude-md-npm`    | npm パッケージ                                   | Node.js              |
+| `sync-claude-md-system` | すでに `PATH` 上にある `sync-claude-md` バイナリ | 追加インストール不要 |
+
 このフックは `sync-claude-md sync` を実行し、デフォルトでは同期したファイルが
 ステージされていないときにコミットを失敗させ、再ステージとコミットを促します。
 同期したファイルを自動でステージするには `args: ['--stage']` を追加します：

@@ -116,6 +116,19 @@ repos:
       - id: sync-claude-md
 ```
 
+`sync-claude-md` is written in Go, and the default `sync-claude-md` hook uses
+`language: golang`, so prek/pre-commit builds it from source on first run —
+which requires a Go toolchain. If you'd rather not require Go on every
+machine, swap in one of the other hook ids; all are defined in this repo's
+[`.pre-commit-hooks.yaml`](.pre-commit-hooks.yaml):
+
+| Hook id                 | Installs via                                | Requires      |
+| ----------------------- | ------------------------------------------- | ------------- |
+| `sync-claude-md`        | Go toolchain (build from source)            | Go            |
+| `sync-claude-md-pip`    | PyPI wheel                                  | Python        |
+| `sync-claude-md-npm`    | npm package                                 | Node.js       |
+| `sync-claude-md-system` | a `sync-claude-md` binary already on `PATH` | nothing extra |
+
 The hook runs `sync-claude-md sync` and, by default, fails the commit when a
 synced file is not staged so you re-stage and commit again. To stage the
 synced files automatically instead, add `args: ['--stage']`:
