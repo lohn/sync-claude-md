@@ -49,6 +49,15 @@ argument prints an error plus `helpText` and exits 1.
 ## Notes
 
 - `version` / `commit` / `date` are injected at build time via `-ldflags` (see
-  `.goreleaser.yaml`); leave the defaults as `dev` / `none` / `unknown`.
+  `.goreleaser.yaml`); leave the defaults as `dev` / `none` / `unknown`. When
+  `-ldflags` did not run (e.g. `go install .../cmd/sync-claude-md@latest`,
+  which never invokes goreleaser), `init()` falls back to
+  `versionFromBuildInfo`, which reads the module version and VCS stamps Go
+  embeds automatically via `runtime/debug.ReadBuildInfo`. The two are
+  independent: a `go install pkg@version` resolves the module version but has
+  no VCS checkout to stamp `commit`/`date` from (those stay at their
+  defaults); a plain `go build` inside a git checkout has VCS stamps but no
+  resolved module version. See `versionFromBuildInfo`'s doc comment and
+  `main_test.go` for both cases.
 - User-facing flag or behavior changes must be reflected in the three READMEs,
   `docs/husky.md`, and `.pre-commit-hooks.yaml`/`.pre-commit-config.yaml`.
