@@ -31,6 +31,13 @@ npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
+### PyPI を使用（Python プロジェクト）
+
+```bash
+pip install sync-claude-md
+sync-claude-md --help
+```
+
 ### GitHub Releases から
 
 [Releases](https://github.com/lohn/sync-claude-md/releases) からお使いのプラットフォーム用のバイナリをダウンロードしてください。
