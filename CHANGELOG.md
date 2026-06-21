@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.0.0](https://github.com/lohn/sync-claude-md/compare/v0.1.2...v1.0.0) (2026-06-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* merge pre-commit into sync, add index check to check ([#23](https://github.com/lohn/sync-claude-md/issues/23))
+* split CLI into sync/check subcommands with unstaged-change guard ([#22](https://github.com/lohn/sync-claude-md/issues/22))
+
+### Features
+
+* add opt-in GEMINI.md sync via --gemini ([#14](https://github.com/lohn/sync-claude-md/issues/14)) ([114769e](https://github.com/lohn/sync-claude-md/commit/114769e69b60be9a291630785ce96c916b35d34e))
+* add pre-commit subcommand with index-based staged verification ([#21](https://github.com/lohn/sync-claude-md/issues/21)) ([302974c](https://github.com/lohn/sync-claude-md/commit/302974cf8eecc57b42c25502ba95f3c14f62bebe))
+* bound target-file read size and per-line length ([#24](https://github.com/lohn/sync-claude-md/issues/24)) ([40ccc75](https://github.com/lohn/sync-claude-md/commit/40ccc75399490557f5f5ceb0f332d3d170b040c1))
+* install prek git hooks via mise postinstall hook ([#18](https://github.com/lohn/sync-claude-md/issues/18)) ([50e3413](https://github.com/lohn/sync-claude-md/commit/50e3413f1b0aee3818424c0b9aa46d3369082630))
+* merge pre-commit into sync, add index check to check ([#23](https://github.com/lohn/sync-claude-md/issues/23)) ([b03df3e](https://github.com/lohn/sync-claude-md/commit/b03df3e4d823206055810456ef04bf3fdffbbef9))
+* split CLI into sync/check subcommands with unstaged-change guard ([#22](https://github.com/lohn/sync-claude-md/issues/22)) ([f99da9b](https://github.com/lohn/sync-claude-md/commit/f99da9b4caa21e2578fc14bad5a6a4ece1b747bb))
+
+
+### Bug Fixes
+
+* **release:** fix package README links and empty release body ([7ab12df](https://github.com/lohn/sync-claude-md/commit/7ab12df7051f650e9e0d22112be779291815f892))
+* **release:** use correct PyPI project name in failure cleanup ([7e2cf89](https://github.com/lohn/sync-claude-md/commit/7e2cf8964d941d23c7ae85fdd13a130bb1759737))
+* remove AGENTS.md reference wherever it appears in target file ([#19](https://github.com/lohn/sync-claude-md/issues/19)) ([534d9eb](https://github.com/lohn/sync-claude-md/commit/534d9eb5ef2052f3b699fa97144204ea494a13bd))
+
 ## [0.1.2](https://github.com/lohn/sync-claude-md/compare/v0.1.1...v0.1.2) (2026-06-19)
 
 
