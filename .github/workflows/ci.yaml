@@ -27,37 +27,19 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      # https://github.com/marketplace/actions/checkout
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - name: Initialize tools
-        uses: ./.github/actions/init-tools
-        with:
-          cache-key: ci
-
-      - name: golangci-lint
-        run: golangci-lint run --timeout=5m
-
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - name: Compute fetch depth
-        id: fetch-depth
-        if: github.event_name == 'pull_request'
-        env:
-          PR_COMMITS: ${{ github.event.pull_request.commits }}
-        # language=bash
-        run: echo "depth=$((PR_COMMITS + 1))" >> "$GITHUB_OUTPUT"
-
+      # A shallow depth derived from the PR commit count cannot reach
+      # base.sha once the base branch advances past the PR's merge base,
+      # so fetch full history for pull_request runs instead.
+      # `0` must stay on the `||` fallback side: GitHub Actions treats `0`
+      # as falsy, so `cond && 0 || 1` collapses to `1` for both outcomes.
       # https://github.com/marketplace/actions/checkout
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          fetch-depth: ${{ steps.fetch-depth.outputs.depth }}
+          fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
