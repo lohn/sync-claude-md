@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -591,5 +592,100 @@ func TestCleanupOnlyTouchesSelectedTargets(t *testing.T) {
 	content := readFile(t, "CLAUDE.md")
 	if !strings.Contains(content, "@AGENTS.md") {
 		t.Fatalf("expected CLAUDE.md to be untouched, got:\n%q", content)
+	}
+}
+
+// TestRunDestroyProtectionBlocksUnstagedTarget refuses to overwrite a target
+// file that has unstaged changes, mirroring pre-commit's axisDestroy guard.
+func TestRunDestroyProtectionBlocksUnstagedTarget(t *testing.T) {
+	initGitRepo(t)
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "# old\n") // no reference yet
+	runGit(t, "add", "AGENTS.md", "CLAUDE.md")
+	runGit(t, "commit", "-qm", "init")
+
+	// Unstaged edit to CLAUDE.md; the sync wants to prepend the reference.
+	writeFile(t, "CLAUDE.md", "# old\nwork in progress\n")
+
+	changed, err := Run(Options{All: true, Claude: true})
+	if err == nil {
+		t.Fatal("expected an error for unstaged CLAUDE.md")
+	}
+	var destroyErr *DestroyError
+	if !errors.As(err, &destroyErr) {
+		t.Fatalf("expected a *DestroyError, got: %v", err)
+	}
+	if len(destroyErr.Paths) != 1 || destroyErr.Paths[0] != "CLAUDE.md" {
+		t.Fatalf("expected CLAUDE.md in DestroyError.Paths, got %+v", destroyErr.Paths)
+	}
+	if changed {
+		t.Fatal("expected changed=false when blocked")
+	}
+	if got := readFile(t, "CLAUDE.md"); got != "# old\nwork in progress\n" {
+		t.Fatalf("CLAUDE.md was modified despite block: %q", got)
+	}
+}
+
+// TestRunForceOverridesDestroyProtection allows Options.Force to write over a
+// target with unstaged changes.
+func TestRunForceOverridesDestroyProtection(t *testing.T) {
+	initGitRepo(t)
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "# old\n")
+	runGit(t, "add", "AGENTS.md", "CLAUDE.md")
+	runGit(t, "commit", "-qm", "init")
+	writeFile(t, "CLAUDE.md", "# old\nwork in progress\n")
+
+	changed, err := Run(Options{All: true, Claude: true, Force: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true")
+	}
+	if got := readFile(t, "CLAUDE.md"); !strings.HasPrefix(got, "@AGENTS.md") {
+		t.Fatalf("expected @AGENTS.md to be prepended, got:\n%s", got)
+	}
+}
+
+// TestRunDestroyProtectionSkippedOutsideGitRepo treats the absence of a git
+// repository as "nothing to protect" rather than failing, since --all and
+// explicit file lists do not otherwise require git.
+func TestRunDestroyProtectionSkippedOutsideGitRepo(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+	// No git init.
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "# old\n")
+
+	changed, err := Run(Options{All: true, Claude: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true")
+	}
+	if got := readFile(t, "CLAUDE.md"); !strings.HasPrefix(got, "@AGENTS.md") {
+		t.Fatalf("expected @AGENTS.md to be prepended, got:\n%s", got)
+	}
+}
+
+// TestRunCheckModeIgnoresDestroyProtection reports drift even when the target
+// has unstaged changes, since check mode never writes.
+func TestRunCheckModeIgnoresDestroyProtection(t *testing.T) {
+	initGitRepo(t)
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "# old\n")
+	runGit(t, "add", "AGENTS.md", "CLAUDE.md")
+	runGit(t, "commit", "-qm", "init")
+	writeFile(t, "CLAUDE.md", "# old\nwork in progress\n")
+
+	changed, err := Run(Options{All: true, Check: true, Claude: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if !changed {
+		t.Fatal("expected changed=true in check mode")
 	}
 }

@@ -36,7 +36,7 @@ only checks the working tree, not the index.)
 STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
 
 if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md
+  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
 fi
 ```
 
@@ -46,7 +46,7 @@ Scan all AGENTS.md files in the repository:
 
 ```bash
 # .husky/pre-commit
-sync-claude-md --all
+sync-claude-md sync --all
 ```
 
 ### 3. Behavior
@@ -56,6 +56,8 @@ sync-claude-md --all
 - If `AGENTS.md` is deleted → removes `@AGENTS.md` reference from `CLAUDE.md`
 - If `CLAUDE.md` becomes empty → deletes the file
 - If changes are made → exits with code 1 to stop commit (re-stage and retry)
+- If `sync` would overwrite a target file that has unstaged changes → exits 1
+  without writing instead (pass `--force`/`-f` to overwrite anyway)
 - With the `pre-commit` subcommand, it also exits 1 when a synced file is not
   staged in the git index (so the sync is guaranteed to land in the commit);
   use `--stage` to stage automatically
@@ -65,11 +67,11 @@ or `--no-claude` (with `--gemini`) to sync `GEMINI.md` only.
 
 ## CI Check
 
-Use `--check` flag in CI to verify sync without making changes:
+Use the `check` subcommand in CI to verify sync without making changes:
 
 ```bash
 # .github/workflows/ci.yaml or similar
-sync-claude-md --all --check
+sync-claude-md check --all
 ```
 
 Exits with code 1 if any CLAUDE.md is out of sync.

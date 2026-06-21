@@ -1,7 +1,8 @@
 # AGENTS.md — internal/sync
 
 Core synchronization logic. Pure library code with no CLI concerns; the entry
-point in `cmd/sync-claude-md` wires flags into `Options` and calls `Run`.
+point in `cmd/sync-claude-md` wires each subcommand's flags into `Options` and
+calls `Run` (`sync`/`check`) or `RunPreCommit` (`pre-commit`).
 
 ## Files
 
@@ -10,9 +11,9 @@ constants.go    Target definitions (CLAUDE.md/GEMINI.md), file mode, skip-dir se
 targets.go      target / targetFile types, resolveTargets
 discover.go     AGENTS.md + target-file discovery (filesystem walk, git, explicit args)
 mutate.go       Pure plan/apply: planSync / planCleanup decide a plannedAction; applyAction writes it
-sync.go         Run orchestration + Options; planActions (decide all) → applyActions (write all)
-precommit.go    pre-commit subcommand: git index checks, RunPreCommit, CheckPreCommit
-*_test.go       Per-file unit tests (precommit_test.go uses real git repos)
+sync.go         Run orchestration + Options + DestroyError; planActions (decide all) → applyActions (write all)
+precommit.go    Destroy-protection (checkDestroy, shared with Run) + pre-commit subcommand: git index checks, RunPreCommit, CheckPreCommit
+*_test.go       Per-file unit tests (precommit_test.go and parts of sync_test.go use real git repos)
 ```
 
 ## Architecture notes
@@ -44,15 +45,25 @@ precommit.go    pre-commit subcommand: git index checks, RunPreCommit, CheckPreC
   because of a _decision_ that later proves wrong. It is not transactional,
   though: if a later `applyActions` write fails mid-way, earlier writes remain on
   disk.
-- **`pre-commit` verifies against the git index, not the worktree.** `precommit.go`
-  enforces two independent axes: **destroy protection** (`axisDestroy`, refuse to
-  overwrite a target with unstaged changes — cleared by `--force`) and **index
-  sync** (`axisSync`, the `@AGENTS.md` reference must be staged so the sync lands
-  in the commit — cleared by `--stage` or a manual `git add`). The check looks at
-  the staged blob (`git cat-file blob :path`), so a file present on disk but
-  untracked still fails — fixing the original "second run silently passes" bug.
-  Git-ignored targets are a complete no-op (skipped in `planActions` and
-  `CheckPreCommit`).
+- **Destroy protection is shared between `Run` and `RunPreCommit`.**
+  `checkDestroy` (in `precommit.go`) takes the planned actions and reports any
+  write to an existing file with unstaged changes (`axisDestroy`); a create is
+  exempt since there is nothing to destroy. `Run` calls it directly and returns
+  a `*DestroyError`; `CheckPreCommit` calls it as the first half of its result.
+  Both are cleared by `Options.Force`. Do not fork this check per caller — add
+  to `checkDestroy` itself.
+- **`Run`'s destroy check only runs inside a git repository.** "Unstaged" is a
+  git concept, so `Run` gates the check on `inGitRepo()` rather than failing an
+  `--all` or explicit-file run that does not otherwise require git (unlike
+  `pre-commit`, which already requires git for the index checks below).
+- **`pre-commit` additionally verifies against the git index, not just the
+  worktree.** `precommit.go` enforces a second, pre-commit-only axis — **index
+  sync** (`axisSync`, the `@AGENTS.md` reference must be staged so the sync
+  lands in the commit — cleared by `--stage` or a manual `git add`). The check
+  looks at the staged blob (`git cat-file blob :path`), so a file present on
+  disk but untracked still fails — fixing the original "second run silently
+  passes" bug. Git-ignored targets are a complete no-op (skipped in
+  `planActions` and `CheckPreCommit`).
 
 ## Testing
 
@@ -65,3 +76,6 @@ Each test runs in an isolated temp dir (`setupTestDir` + `chdir`), so the suite
 never touches the working tree. Mutation tests in `mutate_test.go` are
 table-driven over each target's reference line (`refCases`), so covering a new
 target is usually a new table entry rather than new test functions.
+`initGitRepo`/`runGit` (defined in `precommit_test.go`) set up a real, isolated
+git repo for tests that need one — `sync_test.go`'s destroy-protection tests
+use them too rather than duplicating git setup.
