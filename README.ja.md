@@ -52,22 +52,25 @@ go install github.com/lohn/sync-claude-md/cmd/sync-claude-md@latest
 
 ```bash
 # ステージングされた AGENTS.md のみ処理（デフォルト）
-sync-claude-md
+sync-claude-md sync
 
 # リポジトリ全体をスキャン
-sync-claude-md --all
+sync-claude-md sync --all
 
 # ドライラン：変更を加えずに確認
-sync-claude-md --check
+sync-claude-md check --all
 
 # CLAUDE.md に加えて GEMINI.md（@./AGENTS.md）も同期
-sync-claude-md --gemini
+sync-claude-md sync --gemini
 
 # GEMINI.md のみを同期
-sync-claude-md --gemini --no-claude
+sync-claude-md sync --gemini --no-claude
 
 # 特定のファイルを処理
-sync-claude-md path/to/AGENTS.md another/AGENTS.md
+sync-claude-md sync path/to/AGENTS.md another/AGENTS.md
+
+# 未ステージの変更があっても対象を上書き
+sync-claude-md sync --force
 
 # pre-commit モード: ステージ済み AGENTS.md を同期し、git インデックスと照合
 sync-claude-md pre-commit
@@ -76,16 +79,23 @@ sync-claude-md pre-commit
 sync-claude-md pre-commit --stage
 ```
 
+コマンドなしで `sync-claude-md` を実行するとヘルプが表示されます。
+
 **対象フラグ：**
 
 - `CLAUDE.md` はデフォルトで同期されます
 - `--gemini` — 各ディレクトリに `GEMINI.md`（`@./AGENTS.md`）も同期
 - `--no-claude` — `CLAUDE.md` をスキップ（`--gemini` と併用すると `GEMINI.md` のみ同期）
 
+**安全性：** `sync` は未ステージの変更がある対象ファイルを上書きして作業中の変更を
+失わせることを拒否し、書き込みをせずに終了コード `1` で終了します。`--force`
+（`-f`）で上書きできます。このチェックは git リポジトリ内でのみ適用されます。
+
 **終了コード：**
 
 - `0` — すべて最新
-- `1` — 変更が行われた（または `--check` モードで変更が必要）
+- `1` — 変更が行われた（または `check` モードで変更が必要）、もしくは `sync` が
+  未ステージの変更がある対象の上書きを拒否した
 
 ### `pre-commit` サブコマンド
 
@@ -160,7 +170,7 @@ repos:
 ```bash
 STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
 if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md
+  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
 fi
 ```
 

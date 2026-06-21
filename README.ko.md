@@ -52,22 +52,25 @@ go install github.com/lohn/sync-claude-md/cmd/sync-claude-md@latest
 
 ```bash
 # 스테이징된 AGENTS.md만 처리 (기본값)
-sync-claude-md
+sync-claude-md sync
 
 # 전체 저장소 스캔
-sync-claude-md --all
+sync-claude-md sync --all
 
 # 드라이런: 변경 없이 확인
-sync-claude-md --check
+sync-claude-md check --all
 
 # CLAUDE.md와 함께 GEMINI.md(@./AGENTS.md)도 동기화
-sync-claude-md --gemini
+sync-claude-md sync --gemini
 
 # GEMINI.md만 동기화
-sync-claude-md --gemini --no-claude
+sync-claude-md sync --gemini --no-claude
 
 # 특정 파일 처리
-sync-claude-md path/to/AGENTS.md another/AGENTS.md
+sync-claude-md sync path/to/AGENTS.md another/AGENTS.md
+
+# 스테이징되지 않은 변경이 있어도 대상을 덮어씀
+sync-claude-md sync --force
 
 # pre-commit 모드: 스테이징된 AGENTS.md를 동기화하고 git 인덱스와 대조
 sync-claude-md pre-commit
@@ -76,16 +79,24 @@ sync-claude-md pre-commit
 sync-claude-md pre-commit --stage
 ```
 
+명령 없이 `sync-claude-md`를 실행하면 도움말이 표시됩니다.
+
 **대상 플래그:**
 
 - `CLAUDE.md`는 기본적으로 동기화됩니다
 - `--gemini` — 각 디렉터리에 `GEMINI.md`(`@./AGENTS.md`)도 동기화
 - `--no-claude` — `CLAUDE.md`를 건너뜀 (`--gemini`와 함께 사용하면 `GEMINI.md`만 동기화)
 
+**안전성:** `sync`는 스테이징되지 않은 변경이 있는 대상 파일을 덮어써 작업 중인
+변경을 잃게 만드는 것을 거부하고, 아무것도 쓰지 않은 채 종료 코드 `1`로
+종료합니다. `--force`(`-f`)로 덮어쓸 수 있습니다. 이 검사는 git 저장소 내에서만
+적용됩니다.
+
 **종료 코드:**
 
 - `0` — 모든 것이 최신 상태
-- `1` — 변경이 수행됨 (또는 `--check` 모드에서 변경 필요)
+- `1` — 변경이 수행됨 (또는 `check` 모드에서 변경 필요), 혹은 `sync`가
+  스테이징되지 않은 변경이 있는 대상의 덮어쓰기를 거부함
 
 ### `pre-commit` 하위 명령
 
@@ -161,7 +172,7 @@ repos:
 ```bash
 STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
 if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md
+  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
 fi
 ```
 

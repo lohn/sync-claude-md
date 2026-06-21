@@ -5,6 +5,7 @@ package sync
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // Options controls the behavior of Run.
@@ -16,11 +17,29 @@ type Options struct {
 	Gemini    bool     // sync GEMINI.md
 	PreCommit bool     // pre-commit subcommand: verify against the git index
 	Stage     bool     // pre-commit: git add the synced target files
-	Force     bool     // pre-commit: write even if a target has unstaged changes
+	Force     bool     // write/overwrite even if a target has unstaged changes (sync, pre-commit)
+}
+
+// DestroyError reports that Run refused to write because doing so would
+// overwrite a target file that has unstaged changes (a worktree edit not
+// reflected in the git index). Returned only when Options.Force is unset; the
+// run wrote nothing. The caller can list Paths and suggest --force.
+type DestroyError struct {
+	Paths []string
+}
+
+func (e *DestroyError) Error() string {
+	return fmt.Sprintf("unstaged changes would be overwritten: %s", strings.Join(e.Paths, ", "))
 }
 
 // Run executes the synchronization.
 // Returns true if any target file was modified.
+//
+// Before writing, it refuses to overwrite an existing target file that has
+// unstaged changes, which would discard work that is not yet staged,
+// returning a *DestroyError; pass Options.Force to skip this check. The check
+// is skipped in check mode (which never writes) and outside a git repository,
+// since "unstaged" is meaningless without one.
 func Run(opts Options) (bool, error) {
 	actions, err := planActions(opts)
 	if err != nil {
@@ -35,6 +54,16 @@ func Run(opts Options) (bool, error) {
 			}
 		}
 		return false, nil
+	}
+
+	if !opts.Force && inGitRepo() {
+		destroy, err := checkDestroy(actions)
+		if err != nil {
+			return false, err
+		}
+		if len(destroy) > 0 {
+			return false, &DestroyError{Paths: paths(destroy)}
+		}
 	}
 
 	return applyActions(actions)

@@ -8,7 +8,9 @@ import (
 	"strings"
 )
 
-// axis identifies which kind of pre-commit guarantee a violation breaks.
+// axis identifies which kind of guarantee a violation breaks. axisDestroy
+// applies to both the sync and pre-commit subcommands; axisSync depends on
+// the git index, so it is specific to pre-commit.
 type axis int
 
 const (
@@ -123,29 +125,39 @@ func dedup(in []string) []string {
 	return out
 }
 
+// checkDestroy returns the destroy-protection (axisDestroy) violations: any
+// planned write to an existing file that has unstaged changes, which would
+// clobber the user's uncommitted work. A create action is exempt: it only
+// happens when the file is absent, so there is nothing to destroy.
+func checkDestroy(actions []plannedAction) ([]violation, error) {
+	var destroy []violation
+	for _, a := range actions {
+		if !a.modifies() || a.kind == actionCreate {
+			continue
+		}
+		dirty, err := hasUnstagedChanges(a.path)
+		if err != nil {
+			return nil, err
+		}
+		if dirty {
+			destroy = append(destroy, violation{path: a.path, axis: axisDestroy})
+		}
+	}
+	return destroy, nil
+}
+
 // CheckPreCommit inspects the planned actions and the git index and returns the
 // destroy-protection (axisDestroy) and index-sync (axisSync) violations.
 //
-// axisDestroy is derived from the planned actions: any write to an existing file
-// that has unstaged changes would clobber the user's work.
+// axisDestroy comes from checkDestroy (see there).
 //
 // axisSync is derived from the git index: for every selected target whose
 // sibling AGENTS.md exists the index must contain the reference, and for every
 // target whose AGENTS.md was deleted the index must not contain it.
 func CheckPreCommit(actions []plannedAction, opts Options) (destroy, sync []violation, err error) {
-	for _, a := range actions {
-		if !a.modifies() || a.kind == actionCreate {
-			// A create only happens when the file is absent, so there is
-			// nothing to destroy.
-			continue
-		}
-		dirty, derr := hasUnstagedChanges(a.path)
-		if derr != nil {
-			return nil, nil, derr
-		}
-		if dirty {
-			destroy = append(destroy, violation{path: a.path, axis: axisDestroy})
-		}
+	destroy, err = checkDestroy(actions)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	targets := resolveTargets(opts)
@@ -198,6 +210,14 @@ func CheckPreCommit(actions []plannedAction, opts Options) (destroy, sync []viol
 func isIgnored(path string) bool {
 	// check-ignore exits 0 when the path is ignored, 1 when it is not.
 	return gitProbe("check-ignore", "-q", "--", path)
+}
+
+// inGitRepo reports whether the current directory is inside a git working
+// tree. The destroy-protection check in Run is a git concept (unstaged vs.
+// staged), so Run skips it entirely outside a repository rather than failing
+// an --all or explicit-file run that does not otherwise require git.
+func inGitRepo() bool {
+	return gitProbe("rev-parse", "--is-inside-work-tree")
 }
 
 // hasUnstagedChanges reports whether path has changes in the working tree that

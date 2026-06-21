@@ -52,22 +52,25 @@ go install github.com/lohn/sync-claude-md/cmd/sync-claude-md@latest
 
 ```bash
 # Process staged AGENTS.md files only (default)
-sync-claude-md
+sync-claude-md sync
 
 # Scan entire repository
-sync-claude-md --all
+sync-claude-md sync --all
 
 # Dry-run: check without making changes
-sync-claude-md --check
+sync-claude-md check --all
 
 # Also sync GEMINI.md (@./AGENTS.md) alongside CLAUDE.md
-sync-claude-md --gemini
+sync-claude-md sync --gemini
 
 # Sync GEMINI.md only
-sync-claude-md --gemini --no-claude
+sync-claude-md sync --gemini --no-claude
 
 # Process specific files
-sync-claude-md path/to/AGENTS.md another/AGENTS.md
+sync-claude-md sync path/to/AGENTS.md another/AGENTS.md
+
+# Overwrite a target even if it has unstaged changes
+sync-claude-md sync --force
 
 # Pre-commit mode: sync staged AGENTS.md and verify against the git index
 sync-claude-md pre-commit
@@ -76,16 +79,24 @@ sync-claude-md pre-commit
 sync-claude-md pre-commit --stage
 ```
 
+Running `sync-claude-md` with no command prints help.
+
 **Target flags:**
 
 - `CLAUDE.md` is synced by default
 - `--gemini` — also sync `GEMINI.md` (`@./AGENTS.md`) in each directory
 - `--no-claude` — skip `CLAUDE.md` (use with `--gemini` to sync `GEMINI.md` only)
 
+**Safety:** `sync` refuses to overwrite an existing target file that has
+unstaged changes, which would discard your work, and exits `1` without
+writing. Pass `--force` (`-f`) to overwrite anyway. The check only applies
+inside a git repository.
+
 **Exit codes:**
 
 - `0` — everything is up to date
-- `1` — changes were made (or would be made in --check mode)
+- `1` — changes were made (or would be made by `check`), or `sync` refused to
+  overwrite a target with unstaged changes
 
 ### `pre-commit` subcommand
 
@@ -162,7 +173,7 @@ Quick example for `.husky/pre-commit`:
 ```bash
 STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
 if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md
+  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
 fi
 ```
 
