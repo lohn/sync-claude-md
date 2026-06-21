@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/lohn/sync-claude-md/actions/workflows/ci.yaml/badge.svg)](https://github.com/lohn/sync-claude-md/actions/workflows/ci.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lohn/sync-claude-md)](https://goreportcard.com/report/github.com/lohn/sync-claude-md)
+[![npm](https://img.shields.io/npm/v/sync-claude-md.svg)](https://www.npmjs.com/package/sync-claude-md)
+[![PyPI](https://img.shields.io/pypi/v/sync-claude-md.svg)](https://pypi.org/project/sync-claude-md/)
 
 > [English](README.md) | **日本語** | [한국어](README.ko.md)
 
