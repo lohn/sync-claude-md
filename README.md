@@ -51,8 +51,11 @@ go install github.com/lohn/sync-claude-md/cmd/sync-claude-md@latest
 ### CLI
 
 ```bash
-# Process staged AGENTS.md files only (default)
+# Process staged AGENTS.md files only (default), verifying against the git index
 sync-claude-md sync
+
+# Also stage the synced files (succeeds in one pass)
+sync-claude-md sync --stage
 
 # Scan entire repository
 sync-claude-md sync --all
@@ -72,11 +75,11 @@ sync-claude-md sync path/to/AGENTS.md another/AGENTS.md
 # Overwrite a target even if it has unstaged changes
 sync-claude-md sync --force
 
-# Pre-commit mode: sync staged AGENTS.md and verify against the git index
-sync-claude-md pre-commit
+# Also process target files that are git-ignored
+sync-claude-md sync --no-ignore
 
-# Pre-commit mode: also stage the synced files (succeeds in one pass)
-sync-claude-md pre-commit --stage
+# Exit 1 if anything was written, even after a successful sync/stage
+sync-claude-md sync --fail-on-change
 ```
 
 Running `sync-claude-md` with no command prints help.
@@ -86,44 +89,43 @@ Running `sync-claude-md` with no command prints help.
 - `CLAUDE.md` is synced by default
 - `--gemini` — also sync `GEMINI.md` (`@./AGENTS.md`) in each directory
 - `--no-claude` — skip `CLAUDE.md` (use with `--gemini` to sync `GEMINI.md` only)
+- `--no-ignore` — also process target files that are git-ignored (skipped by default)
 
-**Safety:** `sync` refuses to overwrite an existing target file that has
-unstaged changes, which would discard your work, and exits `1` without
-writing. Pass `--force` (`-f`) to overwrite anyway. The check only applies
-inside a git repository.
+**With no file arguments**, only staged `AGENTS.md` files are processed — the
+intended git-hook use. Pass `--all` to scan the whole repository instead.
+Outside a git repository, "staged" is meaningless, so the default falls back
+to a full scan too.
 
-**Exit codes:**
+**`sync` enforces two guarantees:**
 
-- `0` — everything is up to date
-- `1` — changes were made (or would be made by `check`), or `sync` refused to
-  overwrite a target with unstaged changes
+- **Destroy protection** — it refuses to overwrite an existing target file
+  that has unstaged changes, which would discard your work, and exits `1`
+  without writing. Pass `--force` (`-f`) to overwrite anyway. This check only
+  applies inside a git repository.
+- **Index sync** (inside a git repository only) — the `@AGENTS.md` reference
+  must be **staged**, so the sync actually lands in the next commit. If it is
+  not (including a freshly created but untracked `CLAUDE.md`), it exits `1`
+  and asks you to `git add` the file. Pass `--stage` (`-S`) to stage the
+  synced files automatically and succeed in a single pass.
 
-### `pre-commit` subcommand
-
-`sync-claude-md pre-commit` syncs the staged `AGENTS.md` files and then verifies
-the result against the **git index** (not just the working tree). It enforces
-two guarantees:
-
-- **Sync** — the `@AGENTS.md` reference must be **staged**, so the sync actually
-  lands in the commit. If it is not staged (including a freshly created but
-  untracked `CLAUDE.md`), the commit is stopped with exit `1` and you are asked
-  to `git add` the file. Pass `--stage` to stage the synced files automatically
-  and succeed in a single pass (exit `0`).
-- **Destroy protection** — it refuses to overwrite a target file that has
-  unstaged changes, which would discard your in-progress work, and exits `1`
-  without writing. Pass `--force` (`-f`) to override. (Running under
-  pre-commit/prek this rarely triggers, since the framework stashes unstaged
-  changes first; it mainly protects manual runs.)
-
-| Flag                       | Effect                                                  |
-| -------------------------- | ------------------------------------------------------- |
-| `--stage`, `-S`            | `git add` the synced target files; exit `0` in one pass |
-| `--force`, `-f`            | Overwrite targets even if they have unstaged changes    |
-| `--gemini` / `--no-claude` | Same target selection as the top-level command          |
+| Flag               | Effect                                                               |
+| ------------------ | -------------------------------------------------------------------- |
+| `--all`            | Scan the entire repository instead of only staged files              |
+| `--stage`, `-S`    | `git add` the synced target files (inside a git repository only)     |
+| `--force`, `-f`    | Overwrite targets even if they have unstaged changes                 |
+| `--no-ignore`      | Also process target files that are git-ignored                       |
+| `--fail-on-change` | Exit `1` if any file was written, even after a successful sync/stage |
 
 > **Note**: `--stage` adds the whole target file, so it does not play well with
 > partial staging (`git add -p`). Omit `--stage` and stage manually if you rely
 > on partially staged commits.
+
+**Exit codes:**
+
+- `0` — nothing left to do: everything is up to date and (inside a git
+  repository) staged
+- `1` — a destroy-protection block, an unstaged index-sync violation, or
+  (with `check`) drift; or, with `--fail-on-change`, any write at all
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
@@ -137,8 +139,8 @@ repos:
       - id: sync-claude-md
 ```
 
-The hook runs `sync-claude-md pre-commit` and, by default, fails the commit when
-a synced file is not staged so you re-stage and commit again. To stage the
+The hook runs `sync-claude-md sync` and, by default, fails the commit when a
+synced file is not staged so you re-stage and commit again. To stage the
 synced files automatically instead, add `args: ['--stage']`:
 
 ```yaml
@@ -158,7 +160,7 @@ repos:
     hooks:
       - id: sync-claude-md
         name: Sync CLAUDE.md
-        entry: sync-claude-md pre-commit
+        entry: sync-claude-md sync
         language: system
         always_run: true
         pass_filenames: false
@@ -171,10 +173,7 @@ See [docs/husky.md](docs/husky.md) for detailed setup instructions.
 Quick example for `.husky/pre-commit`:
 
 ```bash
-STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
-if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
-fi
+sync-claude-md sync --stage
 ```
 
 ## How It Works

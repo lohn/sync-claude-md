@@ -8,9 +8,7 @@ import (
 	"strings"
 )
 
-// axis identifies which kind of guarantee a violation breaks. axisDestroy
-// applies to both the sync and pre-commit subcommands; axisSync depends on
-// the git index, so it is specific to pre-commit.
+// axis identifies which kind of guarantee a violation breaks.
 type axis int
 
 const (
@@ -18,77 +16,15 @@ const (
 	// changes, destroying the user's in-progress work. Cleared by --force.
 	axisDestroy axis = iota
 	// axisSync: the target's reference state is not reflected in the git index,
-	// so the sync would not be part of the commit. Cleared by --stage (or a
-	// manual git add).
+	// so a commit made now would not include the sync. Cleared by --stage (or a
+	// manual git add). Meaningless outside a git repository.
 	axisSync
 )
 
-// violation records a single pre-commit problem for a target file.
+// violation records a single problem found for a target file.
 type violation struct {
 	path string
 	axis axis
-}
-
-// PreCommitResult reports the outcome of a pre-commit run so the CLI can choose
-// messages and the exit code without re-touching git.
-type PreCommitResult struct {
-	// DestroyPaths are existing target files with unstaged changes that the sync
-	// would overwrite. Populated only when they block the run (no --force); the
-	// run wrote nothing in that case.
-	DestroyPaths []string
-	// SyncPaths are target files whose reference state is not reflected in the
-	// git index. Populated only when they still need staging after the run
-	// (no --stage).
-	SyncPaths []string
-	// Wrote and Staged record what the run did.
-	Wrote  bool
-	Staged bool
-}
-
-// RunPreCommit plans the sync, enforces the destroy-protection and index-sync
-// guarantees, writes the changes, and optionally stages them. It performs all
-// git and filesystem work; the caller maps the result to messages and an exit
-// code.
-func RunPreCommit(opts Options) (PreCommitResult, error) {
-	var res PreCommitResult
-
-	actions, err := planActions(opts)
-	if err != nil {
-		return res, err
-	}
-
-	destroy, sync, err := CheckPreCommit(actions, opts)
-	if err != nil {
-		return res, err
-	}
-
-	// Destroy protection: refuse to clobber unstaged work unless forced.
-	if len(destroy) > 0 && !opts.Force {
-		res.DestroyPaths = paths(destroy)
-		return res, nil
-	}
-
-	wrote, err := applyActions(actions)
-	if err != nil {
-		return res, err
-	}
-	res.Wrote = wrote
-
-	// Paths that need staging: everything the run wrote, plus any target whose
-	// index state is still out of sync (e.g. a file already on disk with the
-	// reference but never staged).
-	stagePaths := dedup(append(modifyingPaths(actions), paths(sync)...))
-
-	if opts.Stage {
-		if err := gitAdd(stagePaths...); err != nil {
-			return res, err
-		}
-		res.Staged = true
-		return res, nil
-	}
-
-	res.SyncPaths = paths(sync)
-	return res, nil
 }
 
 // modifyingPaths returns the paths of actions that change the filesystem.
@@ -100,6 +36,16 @@ func modifyingPaths(actions []plannedAction) []string {
 		}
 	}
 	return out
+}
+
+// anyModifies reports whether any action changes the filesystem.
+func anyModifies(actions []plannedAction) bool {
+	for _, a := range actions {
+		if a.modifies() {
+			return true
+		}
+	}
+	return false
 }
 
 // paths extracts the path from each violation.
@@ -146,63 +92,26 @@ func checkDestroy(actions []plannedAction) ([]violation, error) {
 	return destroy, nil
 }
 
-// CheckPreCommit inspects the planned actions and the git index and returns the
-// destroy-protection (axisDestroy) and index-sync (axisSync) violations.
-//
-// axisDestroy comes from checkDestroy (see there).
-//
-// axisSync is derived from the git index: for every selected target whose
-// sibling AGENTS.md exists the index must contain the reference, and for every
-// target whose AGENTS.md was deleted the index must not contain it.
-func CheckPreCommit(actions []plannedAction, opts Options) (destroy, sync []violation, err error) {
-	destroy, err = checkDestroy(actions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	targets := resolveTargets(opts)
-	agentsFiles, deletedFiles, ferr := findAgentsFiles(opts)
-	if ferr != nil {
-		return nil, nil, ferr
-	}
-
-	// AGENTS.md present: the index must carry the reference.
-	for _, agentsPath := range agentsFiles {
-		dir := filepath.Dir(agentsPath)
-		for _, t := range targets {
-			targetPath := filepath.Join(dir, t.filename)
-			if isIgnored(targetPath) {
-				continue
-			}
-			has, herr := indexHasRef(targetPath, t.ref)
-			if herr != nil {
-				return nil, nil, herr
-			}
-			if !has {
-				sync = append(sync, violation{path: targetPath, axis: axisSync})
-			}
+// checkIndexSync returns the axisSync violations: planned actions whose
+// desired reference presence (wantRef) is not reflected in the git index.
+// This covers actions that write nothing too (actionNone), which is the whole
+// point — a target already correct on disk but never staged must still be
+// reported, otherwise a second run would silently look clean. Ignored targets
+// need no special handling here: planActions already omits them entirely, so
+// they never appear in actions. Meaningless outside a git repository; callers
+// must gate on inGitRepo().
+func checkIndexSync(actions []plannedAction) ([]violation, error) {
+	var out []violation
+	for _, a := range actions {
+		has, err := indexHasRef(a.path, a.ref)
+		if err != nil {
+			return nil, err
+		}
+		if has != a.wantRef {
+			out = append(out, violation{path: a.path, axis: axisSync})
 		}
 	}
-
-	// AGENTS.md deleted: the index must no longer carry the reference.
-	for _, agentsPath := range deletedFiles {
-		dir := filepath.Dir(agentsPath)
-		for _, t := range targets {
-			targetPath := filepath.Join(dir, t.filename)
-			if isIgnored(targetPath) {
-				continue
-			}
-			has, herr := indexHasRef(targetPath, t.ref)
-			if herr != nil {
-				return nil, nil, herr
-			}
-			if has {
-				sync = append(sync, violation{path: targetPath, axis: axisSync})
-			}
-		}
-	}
-
-	return destroy, sync, nil
+	return out, nil
 }
 
 // isIgnored reports whether path is git-ignored. A tracked file is never

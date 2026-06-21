@@ -51,8 +51,11 @@ go install github.com/lohn/sync-claude-md/cmd/sync-claude-md@latest
 ### CLI
 
 ```bash
-# 스테이징된 AGENTS.md만 처리 (기본값)
+# 스테이징된 AGENTS.md만 처리 (기본값), git 인덱스와 대조
 sync-claude-md sync
+
+# 동기화된 파일을 자동으로 스테이징 (한 번에 성공)
+sync-claude-md sync --stage
 
 # 전체 저장소 스캔
 sync-claude-md sync --all
@@ -72,11 +75,11 @@ sync-claude-md sync path/to/AGENTS.md another/AGENTS.md
 # 스테이징되지 않은 변경이 있어도 대상을 덮어씀
 sync-claude-md sync --force
 
-# pre-commit 모드: 스테이징된 AGENTS.md를 동기화하고 git 인덱스와 대조
-sync-claude-md pre-commit
+# git에서 무시되는 대상 파일도 처리
+sync-claude-md sync --no-ignore
 
-# pre-commit 모드: 동기화된 파일을 자동으로 스테이징 (한 번에 성공)
-sync-claude-md pre-commit --stage
+# 쓰기가 발생하면 스테이징 성공 후에도 종료 코드 1로 종료
+sync-claude-md sync --fail-on-change
 ```
 
 명령 없이 `sync-claude-md`를 실행하면 도움말이 표시됩니다.
@@ -86,43 +89,42 @@ sync-claude-md pre-commit --stage
 - `CLAUDE.md`는 기본적으로 동기화됩니다
 - `--gemini` — 각 디렉터리에 `GEMINI.md`(`@./AGENTS.md`)도 동기화
 - `--no-claude` — `CLAUDE.md`를 건너뜀 (`--gemini`와 함께 사용하면 `GEMINI.md`만 동기화)
+- `--no-ignore` — git에서 무시되는 대상 파일도 처리 (기본적으로는 건너뜀)
 
-**안전성:** `sync`는 스테이징되지 않은 변경이 있는 대상 파일을 덮어써 작업 중인
-변경을 잃게 만드는 것을 거부하고, 아무것도 쓰지 않은 채 종료 코드 `1`로
-종료합니다. `--force`(`-f`)로 덮어쓸 수 있습니다. 이 검사는 git 저장소 내에서만
-적용됩니다.
+**파일 인자를 지정하지 않으면**, 스테이징된 `AGENTS.md`만 처리됩니다 (git 훅
+사용을 위한 기본 동작). 저장소 전체를 스캔하려면 `--all`을 전달하세요. git
+저장소 밖에서는 "스테이징"이라는 개념이 없으므로 기본 동작도 전체 스캔으로
+대체됩니다.
 
-**종료 코드:**
+**`sync`는 두 가지를 보장합니다:**
 
-- `0` — 모든 것이 최신 상태
-- `1` — 변경이 수행됨 (또는 `check` 모드에서 변경 필요), 혹은 `sync`가
-  스테이징되지 않은 변경이 있는 대상의 덮어쓰기를 거부함
-
-### `pre-commit` 하위 명령
-
-`sync-claude-md pre-commit`은 스테이징된 `AGENTS.md`를 동기화한 다음, 결과를
-작업 트리가 아닌 **git 인덱스**와 대조합니다. 두 가지를 보장합니다:
-
-- **동기화** — `@AGENTS.md` 참조가 **스테이징되어 있어야** 합니다. 그래야 동기화가
-  실제로 커밋에 포함됩니다. 스테이징되지 않은 경우(새로 생성되었지만 추적되지 않은
-  `CLAUDE.md` 포함) 커밋이 종료 코드 `1`로 중단되고 `git add`를 요청합니다.
-  `--stage`를 전달하면 동기화된 파일을 자동으로 스테이징하여 한 번에 성공합니다
-  (종료 코드 `0`).
 - **손상 방지** — 스테이징되지 않은 변경이 있는 대상 파일을 덮어써 작업 중인 변경을
-  잃게 만드는 것을 거부하고, 아무것도 쓰지 않은 채 `1`로 종료합니다. `--force`
-  (`-f`)로 재정의할 수 있습니다. (pre-commit/prek로 실행하면 프레임워크가
-  스테이징되지 않은 변경을 먼저 stash하므로 거의 발생하지 않으며, 주로 수동 실행을
-  보호합니다.)
+  잃게 만드는 것을 거부하고, 아무것도 쓰지 않은 채 종료 코드 `1`로 종료합니다.
+  `--force`(`-f`)로 덮어쓸 수 있습니다. 이 검사는 git 저장소 내에서만 적용됩니다.
+- **동기화**(git 저장소 내에서만) — `@AGENTS.md` 참조가 **스테이징되어 있어야**
+  합니다. 그래야 동기화가 실제로 다음 커밋에 포함됩니다. 스테이징되지 않은
+  경우(새로 생성되었지만 추적되지 않은 `CLAUDE.md` 포함) 종료 코드 `1`로
+  종료되고 `git add`를 요청합니다. `--stage`(`-S`)를 전달하면 동기화된 파일을
+  자동으로 스테이징하여 한 번에 성공합니다.
 
-| 플래그                     | 효과                                                  |
-| -------------------------- | ----------------------------------------------------- |
-| `--stage`, `-S`            | 동기화된 대상 파일을 `git add`. 한 번에 종료 코드 `0` |
-| `--force`, `-f`            | 스테이징되지 않은 변경이 있어도 대상을 덮어씀         |
-| `--gemini` / `--no-claude` | 최상위 명령과 동일한 대상 선택                        |
+| 플래그             | 효과                                                      |
+| ------------------ | --------------------------------------------------------- |
+| `--all`            | 스테이징된 파일만이 아닌 저장소 전체를 스캔               |
+| `--stage`, `-S`    | 동기화된 대상 파일을 `git add` (git 저장소 내에서만)      |
+| `--force`, `-f`    | 스테이징되지 않은 변경이 있어도 대상을 덮어씀             |
+| `--no-ignore`      | git에서 무시되는 대상 파일도 처리                         |
+| `--fail-on-change` | 쓰기가 발생하면 스테이징 성공 후에도 종료 코드 `1`로 종료 |
 
 > **참고**: `--stage`는 대상 파일 전체를 add하므로 부분 스테이징(`git add -p`)과는
 > 잘 맞지 않습니다. 부분 스테이징 커밋에 의존한다면 `--stage`를 생략하고 수동으로
 > 스테이징하세요.
+
+**종료 코드:**
+
+- `0` — 더 이상 할 일이 없는 상태: 모든 것이 최신이고 (git 저장소 내에서는)
+  스테이징됨
+- `1` — 손상 방지로 인한 차단, 스테이징되지 않은 동기화 위반, 또는 (`check`의
+  경우) 드리프트. `--fail-on-change` 사용 시에는 쓰기가 발생한 것만으로도
 
 ### Pre-commit / [prek](https://github.com/pre-commit/prek)
 
@@ -136,7 +138,7 @@ repos:
       - id: sync-claude-md
 ```
 
-이 훅은 `sync-claude-md pre-commit`을 실행하며, 기본적으로 동기화된 파일이
+이 훅은 `sync-claude-md sync`를 실행하며, 기본적으로 동기화된 파일이
 스테이징되지 않았을 때 커밋을 실패시켜 다시 스테이징하고 커밋하도록 합니다.
 동기화된 파일을 자동으로 스테이징하려면 `args: ['--stage']`를 추가하세요:
 
@@ -157,7 +159,7 @@ repos:
     hooks:
       - id: sync-claude-md
         name: Sync CLAUDE.md
-        entry: sync-claude-md pre-commit
+        entry: sync-claude-md sync
         language: system
         always_run: true
         pass_filenames: false
@@ -170,10 +172,7 @@ repos:
 `.husky/pre-commit`의 간단한 예:
 
 ```bash
-STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
-if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
-fi
+sync-claude-md sync --stage
 ```
 
 ## 작동 원리

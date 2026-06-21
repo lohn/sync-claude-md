@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -33,7 +32,6 @@ Usage:
 Commands:
   sync         Create, update, or clean up CLAUDE.md (and/or GEMINI.md)
   check        Report drift without writing; exit 1 if any agent file is out of sync
-  pre-commit   Sync staged AGENTS.md and verify the result against the git index
 
 Run "sync-claude-md <command> -h" for the flags of a specific command.
 
@@ -41,23 +39,31 @@ Other flags:
   --version    Print version information and exit
 
 Examples:
-  sync-claude-md sync                  Sync CLAUDE.md for staged AGENTS.md
+  sync-claude-md sync                  Sync staged AGENTS.md and verify against the git index
+  sync-claude-md sync --stage          Sync and stage the result (exit 0 in one pass)
   sync-claude-md sync --all            Scan the whole repository
   sync-claude-md check --all           Report drift without writing; exit 1 if any (CI)
   sync-claude-md sync --gemini         Also sync GEMINI.md alongside CLAUDE.md
   sync-claude-md sync docs/AGENTS.md   Sync only the given AGENTS.md files
-  sync-claude-md pre-commit            Sync staged AGENTS.md and verify against the index
 `
 
 const syncUsageHeader = `sync-claude-md sync creates, updates, or cleans up CLAUDE.md (and, with
 --gemini, GEMINI.md) so each one references its sibling AGENTS.md.
 
 With no file arguments, only staged AGENTS.md files are processed, which is
-the intended pre-commit hook mode. Any [files...] given take priority over
---all and over staged-file detection.
+the intended git-hook use. Pass --all to scan the whole repository instead.
+Outside a git repository "staged" is meaningless, so the default falls back
+to a full scan too. Any [files...] given take priority over both.
 
-It refuses to overwrite an existing target file that has unstaged changes,
-which would discard your work. Pass --force to overwrite anyway.
+It enforces two guarantees:
+  - Destroy protection: it refuses to overwrite an existing target file that
+    has unstaged changes, which would discard your work, and exits 1 without
+    writing. Pass --force to overwrite anyway.
+  - Index sync (inside a git repository only): the @AGENTS.md reference must
+    be staged, so the sync actually lands in the next commit. If it is not
+    (including a freshly created but untracked CLAUDE.md), it exits 1 and
+    asks you to "git add" the file. Pass --stage to stage the synced files
+    automatically and succeed in a single pass.
 
 Usage:
   sync-claude-md sync [flags] [files...]
@@ -67,15 +73,19 @@ Flags:
 
 const syncUsageExamples = `
 Examples:
-  sync-claude-md sync                  Sync CLAUDE.md for staged AGENTS.md
+  sync-claude-md sync                  Sync staged AGENTS.md and verify against the git index
+  sync-claude-md sync --stage          Sync and stage the result (exit 0 in one pass)
   sync-claude-md sync --all            Scan the whole repository
   sync-claude-md sync --gemini         Also sync GEMINI.md alongside CLAUDE.md
   sync-claude-md sync --force          Overwrite targets even with unstaged changes
+  sync-claude-md sync --no-ignore      Also process git-ignored target files
+  sync-claude-md sync --fail-on-change Exit 1 if anything was written, even when staged
   sync-claude-md sync docs/AGENTS.md   Sync only the given AGENTS.md files
 `
 
 const checkUsageHeader = `sync-claude-md check reports whether CLAUDE.md (and, with --gemini,
-GEMINI.md) is in sync with its sibling AGENTS.md, without writing anything.
+GEMINI.md) is in sync with its sibling AGENTS.md — on disk and, inside a git
+repository, in the git index too — without writing anything.
 
 Usage:
   sync-claude-md check [flags] [files...]
@@ -87,29 +97,6 @@ const checkUsageExamples = `
 Examples:
   sync-claude-md check --all     Report drift without writing; exit 1 if any (CI)
   sync-claude-md check --gemini  Also check GEMINI.md
-`
-
-const preCommitUsageHeader = `sync-claude-md pre-commit syncs the per-agent files for staged AGENTS.md and
-verifies the result against the git index.
-
-It enforces two guarantees:
-  - Sync: the @AGENTS.md reference must be staged, so the sync lands in the
-    commit. Otherwise the commit is stopped (exit 1) asking you to "git add".
-    Pass --stage to stage the synced files automatically instead.
-  - Destroy protection: it refuses to overwrite a target file that has unstaged
-    changes (which would discard your work). Pass --force to override.
-
-Usage:
-  sync-claude-md pre-commit [flags]
-
-Flags:
-`
-
-const preCommitUsageExamples = `
-Examples:
-  sync-claude-md pre-commit          Sync staged AGENTS.md and verify the index
-  sync-claude-md pre-commit --stage  Sync and stage the result (exit 0 in one pass)
-  sync-claude-md pre-commit --gemini Also verify GEMINI.md alongside CLAUDE.md
 `
 
 // printFlags writes one aligned line per flag, collapsing single-letter
@@ -143,8 +130,6 @@ func main() {
 		os.Exit(runSync(os.Args[2:]))
 	case "check":
 		os.Exit(runCheck(os.Args[2:]))
-	case "pre-commit":
-		os.Exit(runPreCommit(os.Args[2:]))
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown command %q\n\n", os.Args[1])
 		fmt.Fprint(os.Stderr, helpText)
@@ -157,12 +142,14 @@ type commonFlags struct {
 	all      bool
 	gemini   bool
 	noClaude bool
+	noIgnore bool
 }
 
 func bindCommonFlags(fs *flag.FlagSet, c *commonFlags) {
 	fs.BoolVar(&c.all, "all", false, "Scan the entire repository instead of only staged files")
 	fs.BoolVar(&c.gemini, "gemini", false, "Also sync GEMINI.md (@./AGENTS.md) alongside CLAUDE.md")
 	fs.BoolVar(&c.noClaude, "no-claude", false, "Do not sync CLAUDE.md (use with --gemini to sync GEMINI.md only)")
+	fs.BoolVar(&c.noIgnore, "no-ignore", false, "Also process target files that are git-ignored")
 }
 
 // runSync handles the "sync" subcommand and returns the process exit code.
@@ -170,12 +157,19 @@ func runSync(args []string) int {
 	fs := flag.NewFlagSet("sync", flag.ExitOnError)
 	var c commonFlags
 	bindCommonFlags(fs, &c)
-	var force bool
+	var (
+		force        bool
+		stage        bool
+		failOnChange bool
+	)
 	fs.BoolVar(&force, "force", false, "Overwrite target files even if they have unstaged changes")
 	fs.BoolVar(&force, "f", false, "Shorthand for --force")
+	fs.BoolVar(&stage, "stage", false, "git add the synced target files (inside a git repository only)")
+	fs.BoolVar(&stage, "S", false, "Shorthand for --stage")
+	fs.BoolVar(&failOnChange, "fail-on-change", false, "Exit 1 if any file was written, even after a successful sync/stage")
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, syncUsageHeader)
-		printFlags(fs, map[string]string{"force": "-f"})
+		printFlags(fs, map[string]string{"force": "-f", "stage": "-S"})
 		fmt.Fprint(os.Stderr, syncUsageExamples)
 	}
 	_ = fs.Parse(args)
@@ -186,32 +180,46 @@ func runSync(args []string) int {
 	}
 
 	opts := sync.Options{
-		All:    c.all,
-		Files:  fs.Args(),
-		Claude: claude,
-		Gemini: gemini,
-		Force:  force,
+		All:      c.all,
+		Files:    fs.Args(),
+		Claude:   claude,
+		Gemini:   gemini,
+		Force:    force,
+		Stage:    stage,
+		NoIgnore: c.noIgnore,
 	}
 
-	changed, err := sync.Run(opts)
+	res, err := sync.Run(opts)
 	if err != nil {
-		var destroyErr *sync.DestroyError
-		if errors.As(err, &destroyErr) {
-			fmt.Fprintln(os.Stderr, "error: refusing to overwrite files with unstaged changes:")
-			for _, p := range destroyErr.Paths {
-				fmt.Fprintf(os.Stderr, "  %s\n", p)
-			}
-			fmt.Fprintln(os.Stderr, "stage or discard your changes, or pass --force to overwrite.")
-			return 1
-		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
 
-	if changed {
-		fmt.Fprintln(os.Stderr, "agent instruction files updated. Please re-stage changes.")
+	// Destroy protection blocked the run: nothing was written.
+	if len(res.DestroyPaths) > 0 {
+		fmt.Fprintln(os.Stderr, "error: refusing to overwrite files with unstaged changes:")
+		for _, p := range res.DestroyPaths {
+			fmt.Fprintf(os.Stderr, "  %s\n", p)
+		}
+		fmt.Fprintln(os.Stderr, "stage or discard your changes, or pass --force to overwrite.")
 		return 1
 	}
+
+	// References not reflected in the index: the sync would miss the next commit.
+	if len(res.SyncPaths) > 0 {
+		fmt.Fprintln(os.Stderr, "agent instruction files updated but not staged. Run:")
+		for _, p := range res.SyncPaths {
+			fmt.Fprintf(os.Stderr, "  git add %s\n", p)
+		}
+		fmt.Fprintln(os.Stderr, "then try again (or pass --stage to stage automatically).")
+		return 1
+	}
+
+	if failOnChange && res.Wrote {
+		fmt.Fprintln(os.Stderr, "agent instruction files were updated.")
+		return 1
+	}
+
 	return 0
 }
 
@@ -233,84 +241,23 @@ func runCheck(args []string) int {
 	}
 
 	opts := sync.Options{
-		All:    c.all,
-		Check:  true,
-		Files:  fs.Args(),
-		Claude: claude,
-		Gemini: gemini,
+		All:      c.all,
+		Check:    true,
+		Files:    fs.Args(),
+		Claude:   claude,
+		Gemini:   gemini,
+		NoIgnore: c.noIgnore,
 	}
 
-	changed, err := sync.Run(opts)
+	res, err := sync.Run(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return 1
 	}
-	if changed {
+	if res.Changed {
 		fmt.Fprintln(os.Stderr, "agent instruction files are out of sync")
 		return 1
 	}
-	return 0
-}
-
-// runPreCommit handles the "pre-commit" subcommand and returns the process exit
-// code.
-func runPreCommit(args []string) int {
-	fs := flag.NewFlagSet("pre-commit", flag.ExitOnError)
-	var (
-		geminiFlag = fs.Bool("gemini", false, "Also sync GEMINI.md (@./AGENTS.md) alongside CLAUDE.md")
-		noClaude   = fs.Bool("no-claude", false, "Do not sync CLAUDE.md (use with --gemini to sync GEMINI.md only)")
-		stage      = fs.Bool("stage", false, "git add the synced target files (exit 0 in one pass)")
-		force      = fs.Bool("force", false, "Overwrite target files even if they have unstaged changes")
-	)
-	fs.BoolVar(stage, "S", false, "Shorthand for --stage")
-	fs.BoolVar(force, "f", false, "Shorthand for --force")
-	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, preCommitUsageHeader)
-		printFlags(fs, map[string]string{"stage": "-S", "force": "-f"})
-		fmt.Fprint(os.Stderr, preCommitUsageExamples)
-	}
-	_ = fs.Parse(args)
-
-	claude, gemini, ok := selectTargets(*noClaude, *geminiFlag)
-	if !ok {
-		return 1
-	}
-
-	opts := sync.Options{
-		Files:     fs.Args(),
-		Claude:    claude,
-		Gemini:    gemini,
-		PreCommit: true,
-		Stage:     *stage,
-		Force:     *force,
-	}
-
-	res, err := sync.RunPreCommit(opts)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return 1
-	}
-
-	// Destroy protection blocked the run: nothing was written.
-	if len(res.DestroyPaths) > 0 {
-		fmt.Fprintln(os.Stderr, "error: refusing to overwrite files with unstaged changes:")
-		for _, p := range res.DestroyPaths {
-			fmt.Fprintf(os.Stderr, "  %s\n", p)
-		}
-		fmt.Fprintln(os.Stderr, "stage or discard your changes, or pass --force to overwrite.")
-		return 1
-	}
-
-	// References not reflected in the index: the sync would miss the commit.
-	if len(res.SyncPaths) > 0 {
-		fmt.Fprintln(os.Stderr, "agent instruction files updated but not staged. Run:")
-		for _, p := range res.SyncPaths {
-			fmt.Fprintf(os.Stderr, "  git add %s\n", p)
-		}
-		fmt.Fprintln(os.Stderr, "then commit again (or pass --stage to stage automatically).")
-		return 1
-	}
-
 	return 0
 }
 

@@ -22,22 +22,17 @@ Only process AGENTS.md files that are staged for commit:
 
 ```bash
 # .husky/pre-commit
-sync-claude-md pre-commit
+sync-claude-md sync
 ```
 
-The `pre-commit` subcommand processes the staged `AGENTS.md` files itself and
+With no file arguments, `sync` processes only staged `AGENTS.md` files and
 verifies the result against the git index, so the commit is stopped unless the
-synced `CLAUDE.md` is staged. Add `--stage` to stage the synced files
-automatically instead of failing. (The older manual form below still works but
-only checks the working tree, not the index.)
+synced `CLAUDE.md` is staged too. Add `--stage` to stage the synced files
+automatically instead of failing:
 
 ```bash
-# .husky/pre-commit (manual, working-tree only)
-STAGED_AGENTS=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'AGENTS\.md$' || true)
-
-if [ -n "$STAGED_AGENTS" ]; then
-  echo "$STAGED_AGENTS" | xargs sync-claude-md sync
-fi
+# .husky/pre-commit
+sync-claude-md sync --stage
 ```
 
 #### Option B: Full repository scan
@@ -55,12 +50,11 @@ sync-claude-md sync --all
 - If `CLAUDE.md` exists without `@AGENTS.md` → adds it at the top
 - If `AGENTS.md` is deleted → removes `@AGENTS.md` reference from `CLAUDE.md`
 - If `CLAUDE.md` becomes empty → deletes the file
-- If changes are made → exits with code 1 to stop commit (re-stage and retry)
 - If `sync` would overwrite a target file that has unstaged changes → exits 1
   without writing instead (pass `--force`/`-f` to overwrite anyway)
-- With the `pre-commit` subcommand, it also exits 1 when a synced file is not
-  staged in the git index (so the sync is guaranteed to land in the commit);
-  use `--stage` to stage automatically
+- Inside a git repository, it also exits 1 when a synced file is not staged in
+  the git index (so the sync is guaranteed to land in the commit); pass
+  `--stage` to stage automatically
 
 Pass `--gemini` to also sync a `GEMINI.md` (`@./AGENTS.md`) in each directory,
 or `--no-claude` (with `--gemini`) to sync `GEMINI.md` only.
@@ -74,4 +68,5 @@ Use the `check` subcommand in CI to verify sync without making changes:
 sync-claude-md check --all
 ```
 
-Exits with code 1 if any CLAUDE.md is out of sync.
+Exits with code 1 if any CLAUDE.md is out of sync, on disk or (inside a git
+repository) in the git index.

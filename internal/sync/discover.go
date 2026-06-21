@@ -11,12 +11,15 @@ import (
 
 // findAgentsFiles locates AGENTS.md files.
 // Returns (filesToSync, filesDeleted, error).
-// Priority: explicit Files > all scan > staged files
+// Priority: explicit Files > all scan > staged files. Outside a git
+// repository "staged" is meaningless, so the default falls back to a full
+// scan too (without the explicit --all flag, deletions go undetected, same as
+// any non-all run that did not pick them up via Files or staged AGENTS.md).
 func findAgentsFiles(opts Options) ([]string, []string, error) {
 	if len(opts.Files) > 0 {
 		return filterAgentsFiles(opts.Files)
 	}
-	if opts.All {
+	if opts.All || !inGitRepo() {
 		agents, err := findAllAgents()
 		return agents, nil, err
 	}
