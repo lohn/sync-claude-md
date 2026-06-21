@@ -4,72 +4,35 @@ sync-claude-md works seamlessly with [husky](https://typicode.github.io/husky/) 
 
 ## Setup
 
-### 1. Install sync-claude-md
+Install:
 
 ```bash
-# Via npm (recommended for Node.js projects)
 npm install --save-dev sync-claude-md
-
-# Or download binary from GitHub Releases
-# https://github.com/lohn/sync-claude-md/releases
 ```
 
-### 2. Configure husky
-
-#### Option A: Staged files only (recommended)
-
-Only process AGENTS.md files that are staged for commit:
+Add to `.husky/pre-commit`:
 
 ```bash
-# .husky/pre-commit
 sync-claude-md sync
 ```
 
-With no file arguments, `sync` processes only staged `AGENTS.md` files and
-verifies the result against the git index, so the commit is stopped unless the
-synced `CLAUDE.md` is staged too. Add `--stage` to stage the synced files
-automatically instead of failing:
+This processes only staged `AGENTS.md` files and fails the commit unless the
+synced `CLAUDE.md` is staged too. Alternatives:
 
-```bash
-# .husky/pre-commit
-sync-claude-md sync --stage
-```
+- `sync-claude-md sync --stage` — auto-stage the synced files instead of failing
+- `sync-claude-md sync --all` — scan the whole repository instead of just staged files
 
-#### Option B: Full repository scan
-
-Scan all AGENTS.md files in the repository:
-
-```bash
-# .husky/pre-commit
-sync-claude-md sync --all
-```
-
-### 3. Behavior
-
-- If `AGENTS.md` exists but `CLAUDE.md` doesn't → creates `CLAUDE.md` with `@AGENTS.md`
-- If `CLAUDE.md` exists without `@AGENTS.md` → adds it at the top
-- If `AGENTS.md` is deleted → removes `@AGENTS.md` reference from `CLAUDE.md`
-- If `CLAUDE.md` becomes empty → deletes the file
-- If `sync` would overwrite a target file that has unstaged changes → exits 1
-  without writing instead (pass `--force`/`-f` to overwrite anyway)
-- Outside a git repository it refuses to write anything at all, including a
-  brand-new file (pass `--force`/`-f` to write anyway) — not relevant when run
-  through husky, which always operates inside a git repository
-- Inside a git repository, it also exits 1 when a synced file is not staged in
-  the git index (so the sync is guaranteed to land in the commit); pass
-  `--stage` to stage automatically
-
-Pass `--gemini` to also sync a `GEMINI.md` (`@./AGENTS.md`) in each directory,
-or `--no-claude` (with `--gemini`) to sync `GEMINI.md` only.
+Pass `--gemini` to also sync `GEMINI.md` (`@./AGENTS.md`), or add `--no-claude`
+to sync `GEMINI.md` only. See the [README](../README.md#usage) for the full
+flag reference and safety guarantees.
 
 ## CI Check
 
-Use the `check` subcommand in CI to verify sync without making changes:
+Use `check` in CI to verify sync without writing:
 
 ```bash
-# .github/workflows/ci.yaml or similar
 sync-claude-md check --all
 ```
 
-Exits with code 1 if any CLAUDE.md is out of sync, on disk or (inside a git
-repository) in the git index.
+Exits `1` if any `CLAUDE.md` is out of sync, on disk or (inside a git
+repository) in the index.
