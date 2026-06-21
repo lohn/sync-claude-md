@@ -33,11 +33,13 @@ jobs:
       # A shallow depth derived from the PR commit count cannot reach
       # base.sha once the base branch advances past the PR's merge base,
       # so fetch full history for pull_request runs instead.
+      # `0` must stay on the `||` fallback side: GitHub Actions treats `0`
+      # as falsy, so `cond && 0 || 1` collapses to `1` for both outcomes.
       # https://github.com/marketplace/actions/checkout
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
+          fetch-depth: ${{ github.event_name != 'pull_request' && 1 || 0 }}
 
       - name: Initialize tools
         uses: ./.github/actions/init-tools
