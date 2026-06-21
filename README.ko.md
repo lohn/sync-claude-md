@@ -199,7 +199,7 @@ sync-claude-md sync --stage
 - 기존 콘텐츠를 모두 보존
 - `AGENTS.md` 삭제 시 자동으로 참조 제거
 - 정리 후 빈 지시 파일 삭제
-- 대상 파일(`CLAUDE.md`/`GEMINI.md`)이 10 MiB를 초과하면 메모리에 읽어들이지 않고 처리를 거부합니다. 10 MiB를 넘는 `CLAUDE.md`/`GEMINI.md`를 작성하는 일은 보통 있을 수 없으므로 일반적인 사용에는 영향이 없습니다
+- 대상 파일(`CLAUDE.md`/`GEMINI.md`)이 10 MiB를 초과하면 처리를 거부하며, 한 번에 메모리에 올리는 양을 10 MiB로 제한합니다. 10 MiB를 넘는 `CLAUDE.md`/`GEMINI.md`를 작성하는 일은 보통 있을 수 없으므로 일반적인 사용에는 영향이 없습니다
 
 ## 라이선스
 

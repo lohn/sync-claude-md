@@ -45,15 +45,23 @@ gitstate.go     Git-index/worktree checks: checkDestroy (axisDestroy), checkInde
   (see below), including orphans cleaned up by `planStaleTargets`.
 - **`readTargetFile` (in `mutate.go`) bounds how much of a target file
   `planSync`/`planCleanup` will read.** It rejects a file over
-  `maxTargetFileSize` (10 MiB) outright via `Stat`, then reads through a
-  `io.LimitReader`-bounded streamed reader rather than a single `os.ReadFile`,
-  so a file that grows after the `Stat` (or whose reported size can't be
-  trusted) is still capped. Separately, `isRefLine` rejects any line over
-  `maxLineLength` (1 KiB) before running `TrimSpace`/compare on it, since the
-  reference itself is at most 12 bytes — this trades correctness on a
-  pathological whitespace-padded line (one that would trim down to exactly
+  `maxTargetFileSize` (10 MiB) outright via `Stat`, then reads through an
+  `io.LimitReader` rather than a single unbounded `os.ReadFile`, so a file
+  that grows after the `Stat` (or whose reported size can't be trusted) still
+  reads at most `maxTargetFileSize`+1 bytes. This bounds the read, not the
+  memory footprint: `io.ReadAll` still materializes the result as one
+  contiguous `[]byte`, so up to ~10 MiB ends up in memory at once either way —
+  a deliberate simplification, since 10 MiB is already a safe ceiling and no
+  real target file approaches it. A true file-size-independent streaming
+  rewrite (line-by-line, write-time transform) was considered and rejected as
+  unnecessary complexity for that ceiling. Separately, `isRefLine` rejects any
+  line over `maxLineLength` (1 KiB) before running `TrimSpace`/compare on it,
+  since the reference itself is at most 12 bytes — this trades correctness on
+  a pathological whitespace-padded line (one that would trim down to exactly
   `ref` but exceeds the cap) for not paying full-line-scan cost on arbitrarily
-  long lines. Both constants live in `constants.go`.
+  long lines. Both constants live in `constants.go`. `readTargetFile`'s errors
+  deliberately omit the path — every call site (`planActions` in `sync.go`)
+  already wraps the returned error with it.
 - **`planCleanup` no-ops on a missing file.** `planActions` calls it for every
   deleted AGENTS.md across each selected target, so a directory that never had a
   given target file must not produce an action.

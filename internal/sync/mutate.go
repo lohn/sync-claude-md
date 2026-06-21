@@ -164,8 +164,10 @@ func withRefRemoved(content, ref string) (string, bool) {
 }
 
 // isRefLine reports whether line, once trimmed, is exactly ref. A line longer
-// than maxLineLength cannot equal the (short) reference after trimming, so it
-// is rejected without paying for the trim/compare.
+// than maxLineLength is rejected without paying for the trim/compare, even
+// though a contrived line that pads ref with enough whitespace would still
+// trim down to exactly ref — that pathological case is deliberately not
+// detected, in exchange for never scanning an arbitrarily long line in full.
 func isRefLine(line, ref string) bool {
 	if len(line) > maxLineLength {
 		return false
@@ -176,11 +178,15 @@ func isRefLine(line, ref string) bool {
 // readTargetFile reads path with a bound on the total bytes read. A target
 // file holds only a short reference line plus whatever the user prepends, so
 // anything past maxTargetFileSize is rejected outright (checked via Stat
-// before any read). The read itself is then streamed through a bounded
-// reader rather than slurped in one os.ReadFile call, so a file that grows
-// after the Stat — or one whose reported size can't be trusted — is still
-// capped at maxTargetFileSize+1 bytes rather than however large it actually
-// is.
+// before any read). The read itself then goes through an io.LimitReader
+// rather than a single unbounded os.ReadFile, so a file that grows after the
+// Stat — or one whose reported size can't be trusted — is still capped at
+// maxTargetFileSize+1 bytes read rather than however large it actually is.
+// This bounds the read, not the memory footprint: io.ReadAll still
+// materializes the (capped) result as one contiguous []byte, so up to
+// roughly maxTargetFileSize ends up in memory at once, same as the cap
+// itself implies. Errors deliberately omit path: every caller already wraps
+// it with the target path (see planActions in sync.go).
 func readTargetFile(path string) ([]byte, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -189,7 +195,7 @@ func readTargetFile(path string) ([]byte, error) {
 	defer func() { _ = f.Close() }()
 
 	if info, err := f.Stat(); err == nil && info.Size() > maxTargetFileSize {
-		return nil, fmt.Errorf("%s: file too large to sync (%d bytes exceeds %d byte limit)", path, info.Size(), maxTargetFileSize)
+		return nil, fmt.Errorf("file too large to sync (%d bytes exceeds %d byte limit)", info.Size(), maxTargetFileSize)
 	}
 
 	content, err := io.ReadAll(bufio.NewReader(io.LimitReader(f, maxTargetFileSize+1)))
@@ -197,7 +203,7 @@ func readTargetFile(path string) ([]byte, error) {
 		return nil, err
 	}
 	if len(content) > maxTargetFileSize {
-		return nil, fmt.Errorf("%s: file too large to sync (exceeds %d byte limit)", path, maxTargetFileSize)
+		return nil, fmt.Errorf("file too large to sync (exceeds %d byte limit)", maxTargetFileSize)
 	}
 	return content, nil
 }

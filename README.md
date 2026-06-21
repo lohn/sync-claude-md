@@ -200,8 +200,9 @@ With `--gemini`, a `GEMINI.md` is created the same way using Gemini's import syn
 - Removes references automatically when `AGENTS.md` is deleted
 - Deletes empty instruction files after cleanup
 - Refuses to read a target file (`CLAUDE.md`/`GEMINI.md`) larger than 10 MiB,
-  rather than loading it into memory — in practice you'd never write a
-  `CLAUDE.md`/`GEMINI.md` that large, so this has no effect on normal usage
+  capping how much it will ever load into memory at once — in practice you'd
+  never write a `CLAUDE.md`/`GEMINI.md` that large, so this has no effect on
+  normal usage
 
 ## License
 
