@@ -219,10 +219,13 @@ func runSync(args []string) int {
 	}
 
 	// References not reflected in the index: the sync would miss the next commit.
+	// This can happen with no write this run too (e.g. the target was already
+	// correct on disk from an earlier run but never staged), so the message
+	// talks about staging state rather than claiming a write just happened.
 	if len(res.SyncPaths) > 0 {
-		fmt.Fprintln(os.Stderr, "agent instruction files updated but not staged. Run:")
+		fmt.Fprintln(os.Stderr, "agent instruction files are not staged. Run:")
 		for _, p := range res.SyncPaths {
-			fmt.Fprintf(os.Stderr, "  git add %s\n", p)
+			fmt.Fprintf(os.Stderr, "  git add -- %s\n", p)
 		}
 		fmt.Fprintln(os.Stderr, "then try again (or pass --stage to stage automatically).")
 		return 1
