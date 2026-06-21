@@ -770,3 +770,40 @@ func TestDefaultFallsBackToFullScanOutsideGitRepo(t *testing.T) {
 		}
 	}
 }
+
+// TestRunNoOpOutsideGitRepoWithoutForce succeeds without --force when nothing
+// would actually be written: the no-git guard only blocks a real write, not
+// an already-synced target.
+func TestRunNoOpOutsideGitRepoWithoutForce(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+	// No git init, no --force.
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", "@AGENTS.md\n")
+
+	res, err := Run(Options{All: true, Claude: true})
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if res.Wrote {
+		t.Fatal("expected Wrote=false: already in sync")
+	}
+	if len(res.NoGitPaths) != 0 {
+		t.Fatalf("expected no NoGitPaths when nothing needs writing, got %+v", res.NoGitPaths)
+	}
+}
+
+// TestRunPropagatesPlanActionsError returns the error from planActions (e.g.
+// an oversized target file) instead of swallowing it.
+func TestRunPropagatesPlanActionsError(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "AGENTS.md", "# Agents\n")
+	writeFile(t, "CLAUDE.md", strings.Repeat("a", maxTargetFileSize+1))
+
+	if _, err := Run(Options{All: true, Claude: true, Force: true}); err == nil {
+		t.Fatal("expected an error for an oversized target file")
+	}
+}

@@ -33,6 +33,13 @@ npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
+### via PyPI (Python projects)
+
+```bash
+pip install sync-claude-md
+sync-claude-md --help
+```
+
 ### via GitHub Releases
 
 Download the binary for your platform from [Releases](https://github.com/lohn/sync-claude-md/releases).
