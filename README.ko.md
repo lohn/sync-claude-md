@@ -25,14 +25,14 @@ AI 코딩 에이전트는 읽는 지시 파일이 서로 다릅니다. Claude Co
 
 ## 설치
 
-### npm을 통해 (Node.js 프로젝트)
+### npm을 통해
 
 ```bash
 npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
-### PyPI를 통해 (Python 프로젝트)
+### PyPI를 통해
 
 ```bash
 pip install sync-claude-md

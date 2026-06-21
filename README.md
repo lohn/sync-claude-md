@@ -26,14 +26,14 @@ Works as a **pre-commit hook** or standalone CLI.
 
 ## Installation
 
-### via npm (Node.js projects)
+### via npm
 
 ```bash
 npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
-### via PyPI (Python projects)
+### via PyPI
 
 ```bash
 pip install sync-claude-md
