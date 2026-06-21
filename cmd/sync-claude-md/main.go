@@ -4,16 +4,58 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/lohn/sync-claude-md/internal/sync"
 )
 
-// These variables are set by ldflags during build (see .goreleaser.yaml).
+// These variables are set together by ldflags during release builds (see
+// .goreleaser.yaml). Other build paths — notably `go install
+// .../cmd/sync-claude-md@latest`, which never runs goreleaser — leave all
+// three at these defaults, so init() falls back to the module version and
+// VCS revision Go embeds in the binary automatically. init() only does this
+// when all three are still at their default, so a build that sets any of
+// them via -ldflags is left alone; date is never derived from build info
+// (see versionFromBuildInfo) and always keeps its default outside a
+// goreleaser build.
 var (
 	version = "dev"
 	commit  = "none"
 	date    = "unknown"
 )
+
+func init() {
+	if version != "dev" || commit != "none" || date != "unknown" {
+		return // already set via -ldflags
+	}
+	if info, ok := debug.ReadBuildInfo(); ok {
+		version, commit = versionFromBuildInfo(info, version, commit)
+	}
+}
+
+// versionFromBuildInfo derives version/commit from the build info Go embeds
+// in every binary, falling back to the given defaults for whichever field it
+// has no data for. info.Main.Version is the resolved module version (e.g.
+// "v1.0.0") when installed via `go install pkg@version`, but "(devel)" when
+// built from a local checkout without VCS stamping; the vcs.revision
+// setting, conversely, is only present when built from an actual VCS
+// checkout (a plain `go build` in a git clone), not when installed from the
+// module proxy — the two sources are independent and either may be missing.
+// date is intentionally not derived here: build info has no actual
+// build-time field, only vcs.time (the timestamp of the vcs.revision
+// commit), and using that would mislabel a commit time as the binary's
+// "built:" time in --version output.
+func versionFromBuildInfo(info *debug.BuildInfo, version, commit string) (string, string) {
+	if info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
+	for _, s := range info.Settings {
+		if s.Key == "vcs.revision" {
+			commit = s.Value
+		}
+	}
+	return version, commit
+}
 
 const helpText = `sync-claude-md keeps each CLAUDE.md in sync with its sibling AGENTS.md.
 
