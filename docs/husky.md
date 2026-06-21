@@ -13,15 +13,14 @@ npm install --save-dev sync-claude-md
 Add to `.husky/pre-commit`:
 
 ```bash
-# Only staged AGENTS.md files; fails the commit unless the synced CLAUDE.md is staged too
 sync-claude-md sync
-
-# Or auto-stage the synced files instead of failing
-sync-claude-md sync --stage
-
-# Or scan the whole repository instead of just staged files
-sync-claude-md sync --all
 ```
+
+This processes only staged `AGENTS.md` files and fails the commit unless the
+synced `CLAUDE.md` is staged too. Alternatives:
+
+- `sync-claude-md sync --stage` — auto-stage the synced files instead of failing
+- `sync-claude-md sync --all` — scan the whole repository instead of just staged files
 
 Pass `--gemini` to also sync `GEMINI.md` (`@./AGENTS.md`), or add `--no-claude`
 to sync `GEMINI.md` only. See the [README](../README.md#usage) for the full
