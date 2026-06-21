@@ -32,6 +32,13 @@ npm install --save-dev sync-claude-md
 npx sync-claude-md --help
 ```
 
+### PyPI를 통해 (Python 프로젝트)
+
+```bash
+pip install sync-claude-md
+sync-claude-md --help
+```
+
 ### GitHub Releases를 통해
 
 [Releases](https://github.com/lohn/sync-claude-md/releases)에서 플랫폼용 바이너리를 다운로드하세요.
