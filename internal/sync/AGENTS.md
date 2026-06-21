@@ -43,6 +43,17 @@ gitstate.go     Git-index/worktree checks: checkDestroy (axisDestroy), checkInde
   true`, `planCleanup` always leaves it `false`. `checkIndexSync` relies on
   this to catch a target that is already correct on disk but never staged
   (see below), including orphans cleaned up by `planStaleTargets`.
+- **`readTargetFile` (in `mutate.go`) bounds how much of a target file
+  `planSync`/`planCleanup` will read.** It rejects a file over
+  `maxTargetFileSize` (10 MiB) outright via `Stat`, then reads through a
+  `io.LimitReader`-bounded streamed reader rather than a single `os.ReadFile`,
+  so a file that grows after the `Stat` (or whose reported size can't be
+  trusted) is still capped. Separately, `isRefLine` rejects any line over
+  `maxLineLength` (1 KiB) before running `TrimSpace`/compare on it, since the
+  reference itself is at most 12 bytes — this trades correctness on a
+  pathological whitespace-padded line (one that would trim down to exactly
+  `ref` but exceeds the cap) for not paying full-line-scan cost on arbitrarily
+  long lines. Both constants live in `constants.go`.
 - **`planCleanup` no-ops on a missing file.** `planActions` calls it for every
   deleted AGENTS.md across each selected target, so a directory that never had a
   given target file must not produce an action.

@@ -2,6 +2,7 @@ package sync
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -258,5 +259,68 @@ func TestRemoveRefDoesNotMatchOtherTargetRef(t *testing.T) {
 	}
 	if got := readFile(t, "TARGET.md"); got != claudeTarget.ref+"\n" {
 		t.Fatalf("content modified unexpectedly: %q", got)
+	}
+}
+
+// TestPlanSyncRejectsOversizedFile errors out, without writing, when an
+// existing target file exceeds maxTargetFileSize.
+func TestPlanSyncRejectsOversizedFile(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "TARGET.md", strings.Repeat("a", maxTargetFileSize+1))
+
+	if _, err := planSync("TARGET.md", claudeTarget.ref); err == nil {
+		t.Fatal("expected an error for an oversized target file")
+	}
+}
+
+// TestPlanCleanupRejectsOversizedFile errors out, without writing, when an
+// existing target file exceeds maxTargetFileSize.
+func TestPlanCleanupRejectsOversizedFile(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	writeFile(t, "TARGET.md", strings.Repeat("a", maxTargetFileSize+1))
+
+	if _, err := planCleanup("TARGET.md", claudeTarget.ref); err == nil {
+		t.Fatal("expected an error for an oversized target file")
+	}
+}
+
+// TestIsRefLineSkipsOverlongLines documents the line-length safeguard's
+// trade-off: a line padded with whitespace far past maxLineLength is treated
+// as a non-match even though it would trim down to exactly ref, since
+// matching it would require paying for a full trim/compare on every
+// pathologically long line.
+func TestIsRefLineSkipsOverlongLines(t *testing.T) {
+	padded := strings.Repeat(" ", maxLineLength) + claudeTarget.ref + strings.Repeat(" ", maxLineLength)
+
+	if isRefLine(padded, claudeTarget.ref) {
+		t.Fatal("expected a whitespace-padded line past maxLineLength to be skipped")
+	}
+	if !isRefLine(claudeTarget.ref, claudeTarget.ref) {
+		t.Fatal("expected the bare reference line to match")
+	}
+}
+
+// TestRemoveRefPreservesOverlongLine ensures a long non-reference line is
+// preserved verbatim, and a normal reference line elsewhere in the same file
+// is still removed.
+func TestRemoveRefPreservesOverlongLine(t *testing.T) {
+	tmpDir := setupTestDir(t)
+	chdir(t, tmpDir)
+
+	longLine := strings.Repeat("x", maxLineLength*2)
+	// A trailing blank line immediately after the reference is dropped by
+	// withRefRemoved (see TestRemoveRefKeepsContent), so the long line is left
+	// without its own trailing newline.
+	writeFile(t, "TARGET.md", longLine+"\n"+claudeTarget.ref+"\n")
+
+	if !applyPlanCleanup(t, "TARGET.md", claudeTarget.ref) {
+		t.Fatal("expected modified=true")
+	}
+	if got := readFile(t, "TARGET.md"); got != longLine {
+		t.Fatalf("long line not preserved: got len %d, want len %d", len(got), len(longLine))
 	}
 }

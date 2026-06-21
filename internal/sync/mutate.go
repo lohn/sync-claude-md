@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 )
@@ -38,7 +40,7 @@ func (a plannedAction) modifies() bool { return a.kind != actionNone }
 // planSync decides what (if anything) must change so that targetPath references
 // ref. It performs no writes.
 func planSync(targetPath, ref string) (plannedAction, error) {
-	content, err := os.ReadFile(targetPath)
+	content, err := readTargetFile(targetPath)
 	if os.IsNotExist(err) {
 		return plannedAction{path: targetPath, ref: ref, kind: actionCreate, content: []byte(ref + "\n"), wantRef: true}, nil
 	}
@@ -59,7 +61,7 @@ func planSync(targetPath, ref string) (plannedAction, error) {
 // left at its zero value (false) on every returned action: cleanup always
 // wants the reference gone, whether or not anything actually needs removing.
 func planCleanup(targetPath, ref string) (plannedAction, error) {
-	content, err := os.ReadFile(targetPath)
+	content, err := readTargetFile(targetPath)
 	if os.IsNotExist(err) {
 		return plannedAction{path: targetPath, ref: ref, kind: actionNone}, nil
 	}
@@ -99,7 +101,7 @@ func withRefPrepended(content, ref string) (string, bool) {
 	lines := strings.Split(content, "\n")
 
 	for _, line := range lines {
-		if strings.TrimSpace(line) == ref {
+		if isRefLine(line, ref) {
 			return content, false
 		}
 	}
@@ -136,7 +138,7 @@ func withRefRemoved(content, ref string) (string, bool) {
 	// is nothing to remove.
 	found := false
 	for _, line := range lines {
-		if strings.TrimSpace(line) == ref {
+		if isRefLine(line, ref) {
 			found = true
 			break
 		}
@@ -149,7 +151,7 @@ func withRefRemoved(content, ref string) (string, bool) {
 	// following each, to avoid leaving accumulated empty lines behind.
 	var newLines []string
 	for i := 0; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == ref {
+		if isRefLine(lines[i], ref) {
 			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
 				i++
 			}
@@ -159,4 +161,43 @@ func withRefRemoved(content, ref string) (string, bool) {
 	}
 
 	return strings.Join(newLines, "\n"), true
+}
+
+// isRefLine reports whether line, once trimmed, is exactly ref. A line longer
+// than maxLineLength cannot equal the (short) reference after trimming, so it
+// is rejected without paying for the trim/compare.
+func isRefLine(line, ref string) bool {
+	if len(line) > maxLineLength {
+		return false
+	}
+	return strings.TrimSpace(line) == ref
+}
+
+// readTargetFile reads path with a bound on the total bytes read. A target
+// file holds only a short reference line plus whatever the user prepends, so
+// anything past maxTargetFileSize is rejected outright (checked via Stat
+// before any read). The read itself is then streamed through a bounded
+// reader rather than slurped in one os.ReadFile call, so a file that grows
+// after the Stat — or one whose reported size can't be trusted — is still
+// capped at maxTargetFileSize+1 bytes rather than however large it actually
+// is.
+func readTargetFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	if info, err := f.Stat(); err == nil && info.Size() > maxTargetFileSize {
+		return nil, fmt.Errorf("%s: file too large to sync (%d bytes exceeds %d byte limit)", path, info.Size(), maxTargetFileSize)
+	}
+
+	content, err := io.ReadAll(bufio.NewReader(io.LimitReader(f, maxTargetFileSize+1)))
+	if err != nil {
+		return nil, err
+	}
+	if len(content) > maxTargetFileSize {
+		return nil, fmt.Errorf("%s: file too large to sync (exceeds %d byte limit)", path, maxTargetFileSize)
+	}
+	return content, nil
 }
