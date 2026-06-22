@@ -111,7 +111,7 @@ sync-claude-md sync --gemini  # GEMINI.md（@./AGENTS.md）も同期
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
 ```
@@ -140,7 +140,7 @@ repos:
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
         args: ["--stage"]

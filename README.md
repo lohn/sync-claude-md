@@ -113,7 +113,7 @@ Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
 ```
@@ -142,7 +142,7 @@ synced files automatically instead, add `args: ['--stage']`:
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
         args: ["--stage"]
