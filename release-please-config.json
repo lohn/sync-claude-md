@@ -8,6 +8,9 @@
     ".": {
       "release-type": "node",
       "extra-files": [
+        "README.md",
+        "README.ja.md",
+        "README.ko.md",
         "pyproject.toml",
         { "type": "toml", "path": "pyproject.toml", "jsonpath": "$.project.version" },
         { "type": "toml", "path": "pypi/pyproject.toml", "jsonpath": "$.project.version" },

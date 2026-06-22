@@ -108,6 +108,8 @@ drift detected by `check`, or — with `--fail-on-change` — on any write at al
 
 Add to `.pre-commit-config.yaml`:
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -115,6 +117,8 @@ repos:
     hooks:
       - id: sync-claude-md
 ```
+
+<!-- x-release-please-end -->
 
 `sync-claude-md` is written in Go, and the default `sync-claude-md` hook uses
 `language: golang`, so prek/pre-commit builds it from source on first run —
@@ -133,6 +137,8 @@ The hook runs `sync-claude-md sync` and, by default, fails the commit when a
 synced file is not staged so you re-stage and commit again. To stage the
 synced files automatically instead, add `args: ['--stage']`:
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -141,6 +147,8 @@ repos:
       - id: sync-claude-md
         args: ["--stage"]
 ```
+
+<!-- x-release-please-end -->
 
 Or use `repo: local` with a pre-installed binary:
 
