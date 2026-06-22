@@ -112,7 +112,7 @@ sync-claude-md sync --gemini  # GEMINI.md(@./AGENTS.md)도 동기화
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
 ```
@@ -141,7 +141,7 @@ ID로 바꿀 수 있습니다. 모두 이 저장소의
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
-    rev: v1.0.0
+    rev: v1.0.1
     hooks:
       - id: sync-claude-md
         args: ["--stage"]

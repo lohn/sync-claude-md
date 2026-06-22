@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "dependencies": {
-    "sync-claude-md": "1.0.0"
+    "sync-claude-md": "1.0.1"
   }
 }

@@ -1,7 +1,7 @@
 [project]
 name = "sync-claude-md-pre-commit"
-version = "1.0.0"
+version = "1.0.1"
 requires-python = ">=3"
 dependencies = [
-  "sync-claude-md==1.0.0", # x-release-please-version
+  "sync-claude-md==1.0.1", # x-release-please-version
 ]
