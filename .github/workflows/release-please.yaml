@@ -28,6 +28,14 @@ jobs:
       # After a release PR is merged the manifest version has no tag yet. Pushing
       # the tag with the app token (not GITHUB_TOKEN) triggers the Release
       # workflow. Only releases are immutable, tags are not, so this is safe.
+      #
+      # release-please normally swaps the merged release PR's label from
+      # "autorelease: pending" to "autorelease: tagged" itself when it creates
+      # the GitHub release, but that step is skipped here (skip-github-release
+      # below), since the release is created by the Release workflow instead.
+      # Without doing the swap ourselves, the PR stays "pending" forever and
+      # release-please refuses to open any further release PRs ("untagged,
+      # merged release PRs outstanding - aborting").
       - name: Create the release tag if missing
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -42,11 +50,12 @@ jobs:
           else
             gh api "repos/$GH_REPO/git/refs" -f "ref=refs/tags/$tag" -f "sha=$GITHUB_SHA"
             echo "created $tag"
+            pr=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+            if [ -n "$pr" ]; then
+              gh pr edit "$pr" --remove-label "autorelease: pending" --add-label "autorelease: tagged"
+            fi
           fi
 
-      # release-please only manages versioning and the release PR; the GitHub
-      # release is created by the Release workflow. Labels are skipped so a
-      # merged-but-not-yet-released PR never blocks opening the next release PR.
       # https://github.com/marketplace/actions/release-please-action
       - name: Run release-please
         id: rp
@@ -56,7 +65,6 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           skip-github-release: true
-          skip-labeling: true
 
       - name: Enable auto-merge on the release pull request
         if: ${{ steps.rp.outputs.prs_created == 'true' }}
