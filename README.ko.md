@@ -107,6 +107,8 @@ sync-claude-md sync --gemini  # GEMINI.md(@./AGENTS.md)도 동기화
 
 `.pre-commit-config.yaml`에 추가:
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -114,6 +116,8 @@ repos:
     hooks:
       - id: sync-claude-md
 ```
+
+<!-- x-release-please-end -->
 
 `sync-claude-md`는 Go로 작성되어 있으며, 기본 `sync-claude-md` 훅은
 `language: golang`을 사용하므로 prek/pre-commit이 처음 실행할 때 소스에서
@@ -132,6 +136,8 @@ ID로 바꿀 수 있습니다. 모두 이 저장소의
 스테이징되지 않았을 때 커밋을 실패시켜 다시 스테이징하고 커밋하도록 합니다.
 동기화된 파일을 자동으로 스테이징하려면 `args: ['--stage']`를 추가하세요:
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -140,6 +146,8 @@ repos:
       - id: sync-claude-md
         args: ["--stage"]
 ```
+
+<!-- x-release-please-end -->
 
 또는 사전 설치된 바이너리를 `repo: local`로 사용:
 

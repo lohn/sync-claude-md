@@ -106,6 +106,8 @@ sync-claude-md sync --gemini  # GEMINI.md（@./AGENTS.md）も同期
 
 `.pre-commit-config.yaml` に追加：
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -113,6 +115,8 @@ repos:
     hooks:
       - id: sync-claude-md
 ```
+
+<!-- x-release-please-end -->
 
 `sync-claude-md` は Go で書かれており、デフォルトの `sync-claude-md` フックは
 `language: golang` を使うため、prek/pre-commit が初回実行時にソースからビルド
@@ -131,6 +135,8 @@ repos:
 ステージされていないときにコミットを失敗させ、再ステージとコミットを促します。
 同期したファイルを自動でステージするには `args: ['--stage']` を追加します：
 
+<!-- x-release-please-start-version -->
+
 ```yaml
 repos:
   - repo: https://github.com/lohn/sync-claude-md
@@ -139,6 +145,8 @@ repos:
       - id: sync-claude-md
         args: ["--stage"]
 ```
+
+<!-- x-release-please-end -->
 
 または、事前にインストールしたバイナリを `repo: local` で使用：
 
