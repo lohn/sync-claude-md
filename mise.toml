@@ -1,14 +1,14 @@
 [tools]
 actionlint = "1.7.12"
-dprint = "0.54.0"
-go = "1.26.4"
-golangci-lint = "2.12.2"
-goreleaser = "2.16.0"
-node = "24.17.0"
-"npm:renovate" = "43.231.1"
-"pipx:commitizen" = "4.16.3"
-prek = "0.4.5"
-uv = "0.11.21"
+dprint = "0.57.0"
+go = "1.27.1"
+golangci-lint = "2.13.2"
+goreleaser = "2.18.0"
+node = "24.20.0"
+"npm:renovate" = "43.288.0"
+"pipx:commitizen" = "4.18.0"
+prek = "0.5.2"
+uv = "0.12.9"
 
 [settings]
 minimum_release_age = "3d"
